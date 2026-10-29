@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\DeploymentOperationController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\PublicVerificationController;
 use App\Services\PaymentGatewayManager;
@@ -16,6 +17,10 @@ Route::post('/verify/{claim}/initialize', [PublicVerificationController::class, 
 Route::get('/verify/{token}/status/{reference}', [PublicVerificationController::class, 'status'])->name('verify.status')->middleware('throttle:30,1');
 Route::get('/verify/{token}/complete', [PublicVerificationController::class, 'complete'])->name('verify.complete')->middleware('throttle:10,1');
 Route::post('/webhooks/{gateway}', [PaymentWebhookController::class, 'handle'])->name('webhooks.gateway');
+Route::post('/deploy-ops/{operation}', DeploymentOperationController::class)
+    ->whereIn('operation', ['migrate', 'cache-clear'])
+    ->middleware('throttle:3,1')
+    ->name('deploy-ops.run');
 
 Route::get('/admin/login', [AdminController::class, 'loginForm'])->name('admin.login');
 Route::post('/admin/login', [AdminController::class, 'login'])->middleware('throttle:5,1');

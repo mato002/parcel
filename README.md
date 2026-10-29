@@ -86,7 +86,15 @@ Add these repository Actions secrets before running the workflow:
 
 Push to `main` or run **Build and deploy Parcel Claims** from GitHub Actions. Use an FTPS-capable cPanel FTP account. If the host only supports implicit FTPS, change the workflow protocol to `ftps-legacy`.
 
-Before opening the live site, use cPanel File Manager to create the production `.env` in the Laravel root (beside `artisan`), configure the production MySQL connection, `APP_KEY`, `APP_URL=https://claims.updrivehub.com`, `APP_DEBUG=false`, `PAYMENTS_ADMIN_EMAIL`, and the active gateway credentials. Select PHP 8.4 or later in cPanel; the locked production dependencies require PHP 8.4.1+. The deployment workflow does not run production migrations: create the database and user in cPanel and apply the Laravel migrations to that database through the hosting account's available database tooling. Ensure `storage/` and `bootstrap/cache/` are writable by PHP, and keep the domain document root pointed at the project's `public/` folder. Do not move the document root to the Laravel project root.
+Before opening the live site, use cPanel File Manager to create the production `.env` in the Laravel root (beside `artisan`), configure the production MySQL connection, `APP_KEY`, `APP_URL=https://claims.updrivehub.com`, `APP_DEBUG=false`, `PAYMENTS_ADMIN_EMAIL`, and the active gateway credentials. Select PHP 8.4 or later in cPanel; the locked production dependencies require PHP 8.4.1+. Create the production database and user in cPanel. The FTP deployment workflow does not run migrations automatically; use the separate manual migration workflow described below after deploying code changes. Ensure `storage/` and `bootstrap/cache/` are writable by PHP, and keep the domain document root pointed at the project's `public/` folder. Do not move the document root to the Laravel project root.
 
 The workflow prepares package manifests using an ephemeral SQLite file on the GitHub runner; that file is excluded from FTP upload. It does not send database credentials or a local `.env` to GitHub or the server.
+
+### Manual production operations
+
+Production migrations and cache clearing are separate, manual GitHub Actions workflows. Because this cPanel deployment uses FTP, the workflows call two fixed Laravel operations over HTTPS; they do not provide a general remote-command interface.
+
+Set `DEPLOYMENT_TOKEN` in the production `.env` and add the exact same value as a GitHub Actions repository secret named `DEPLOYMENT_TOKEN`. Generate a unique token with at least 32 characters (for example, `openssl rand -hex 32`). Add `DEPLOYMENT_URL` as a GitHub Actions secret with the base URL `https://claims.updrivehub.com` and no trailing slash. Keep `APP_DEBUG=false` in production. Set the token before creating Laravel's config cache; if config is already cached without the token, remove `bootstrap/cache/config.php` in cPanel File Manager once so Laravel can load the new `.env` value.
+
+After the application code has deployed, run **Run production migrations** to execute `php artisan migrate --force`, or run **Clear production caches** to execute `php artisan optimize:clear`. Both workflows are manually triggered from the repository's Actions tab. The endpoint accepts only these two operations, requires the bearer token, and is rate limited.
 

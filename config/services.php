@@ -42,4 +42,8 @@ return [
 
     'claims' => ['admin_email' => env('PAYMENTS_ADMIN_EMAIL', env('PAYSTACK_ADMIN_EMAIL'))],
 
+    'deployment' => [
+        'token' => env('DEPLOYMENT_TOKEN'),
+    ],
+
 ];

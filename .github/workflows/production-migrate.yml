@@ -1,0 +1,37 @@
+name: Run production migrations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parcel-claims-production-operations
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Run Laravel migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Run migrations on production
+        env:
+          DEPLOYMENT_URL: ${{ secrets.DEPLOYMENT_URL }}
+          DEPLOYMENT_TOKEN: ${{ secrets.DEPLOYMENT_TOKEN }}
+        run: |
+          set -eu
+          test -n "$DEPLOYMENT_URL" || { echo "Missing DEPLOYMENT_URL secret"; exit 1; }
+          test -n "$DEPLOYMENT_TOKEN" || { echo "Missing DEPLOYMENT_TOKEN secret"; exit 1; }
+          case "$DEPLOYMENT_URL" in
+            https://*) ;;
+            *) echo "DEPLOYMENT_URL must use HTTPS"; exit 1 ;;
+          esac
+          curl --fail --silent --show-error \
+            --connect-timeout 15 --max-time 240 \
+            --request POST \
+            --header "Authorization: Bearer $DEPLOYMENT_TOKEN" \
+            --header "Accept: application/json" \
+            "${DEPLOYMENT_URL%/}/deploy-ops/migrate"
