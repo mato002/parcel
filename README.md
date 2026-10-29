@@ -81,7 +81,7 @@ Add these repository Actions secrets before running the workflow:
 
 - `FTP_SERVER`: the FTP hostname from cPanel (not the website URL).
 - `FTP_USERNAME` and `FTP_PASSWORD`: a dedicated FTP account with access to the app's parent directory.
-- `FTP_SERVER_DIR`: `/claims.updrivehub.com/` as shown in cPanel. If the FTP account is jailed to a subdirectory, use that account's corresponding relative path instead.
+- `FTP_SERVER_DIR`: the exact destination directory as seen from this FTP account, including a trailing slash. For an account rooted at `/home/updrtasq`, this is `/claims.updrivehub.com/`. If the FTP account is jailed to the domain folder, use `/` instead. The workflow uses this secret directly; it does not append another directory.
 - `FTP_PORT` is optional; it defaults to `21`.
 
 Push to `main` or run **Build and deploy Parcel Claims** from GitHub Actions. Use an FTPS-capable cPanel FTP account. If the host only supports implicit FTPS, change the workflow protocol to `ftps-legacy`.
