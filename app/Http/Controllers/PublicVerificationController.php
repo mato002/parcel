@@ -14,7 +14,8 @@ class PublicVerificationController extends Controller
     public function show(string $token, PaymentSettings $settings)
     {
         $claim = ParcelClaim::where('public_token', $token)->firstOrFail();
-        return view('verify', ['claim' => $claim, 'paymentSettings' => $settings->all(), 'gatewayName' => app(PaymentGatewayManager::class)->current()->name()]);
+
+        return view('verify', ['claim' => $claim, 'paymentSettings' => $settings->all(), 'gatewayName' => app(PaymentGatewayManager::class)->current()->displayName()]);
     }
 
     public function initialize(Request $request, ParcelClaim $claim, PaymentGatewayManager $gateways, PaymentSettings $settings)
@@ -35,6 +36,7 @@ class PublicVerificationController extends Controller
             'type' => 'verification', 'amount' => $settings->all()['verification_amount'],
             'currency' => $settings->all()['verification_currency'], 'status' => 'pending', 'description' => 'Card verification',
             'metadata' => ['public_token' => $claim->public_token]]);
+
         return response()->json([
             'access_code' => $result['access_code'] ?? null,
             'redirect_url' => $result['authorization_url'] ?? null,
@@ -47,14 +49,21 @@ class PublicVerificationController extends Controller
         $claim = ParcelClaim::where('public_token', $token)->firstOrFail();
         $gateway = $gateways->for((string) $request->query('gateway', app(PaymentSettings::class)->all()['gateway']));
         $reference = $gateway->callbackReference($request);
-        if (! $reference) return redirect()->route('verify.show', $token)->with('error', 'Payment was not completed.');
+        if (! $reference) {
+            return redirect()->route('verify.show', $token)->with('error', 'Payment was not completed.');
+        }
         $transaction = Transaction::where('gateway_reference', $reference)->where('parcel_claim_id', $claim->id)->first();
-        if (! $transaction) return redirect()->route('verify.show', $token)->with('error', 'We could not find this payment attempt. Please contact support.');
-        if ($transaction->gateway !== $gateway->key()) return redirect()->route('verify.show', $token)->with('error', 'The payment provider does not match this payment attempt.');
+        if (! $transaction) {
+            return redirect()->route('verify.show', $token)->with('error', 'We could not find this payment attempt. Please contact support.');
+        }
+        if ($transaction->gateway !== $gateway->key()) {
+            return redirect()->route('verify.show', $token)->with('error', 'The payment provider does not match this payment attempt.');
+        }
         $data = $gateway->verify($reference);
         if (($data['status'] ?? null) !== 'success' || ($data['metadata']['public_token'] ?? null) !== $claim->public_token) {
             return redirect()->route('verify.show', $token)->with('error', 'We could not confirm the verification charge. Please contact support.');
         }
+
         return view('verify-success', compact('claim'));
     }
 

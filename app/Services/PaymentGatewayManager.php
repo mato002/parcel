@@ -4,8 +4,8 @@ namespace App\Services;
 
 use App\Contracts\PaymentGateway;
 use Illuminate\Support\Facades\App;
-use InvalidArgumentException;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class PaymentGatewayManager
 {
@@ -15,8 +15,11 @@ class PaymentGatewayManager
         $available = [];
         foreach (config('payments.gateways', []) as $key => $class) {
             $gateway = App::make($class);
-            if ($gateway instanceof PaymentGateway) $available[$key] = $gateway->name();
+            if ($gateway instanceof PaymentGateway) {
+                $available[$key] = $gateway->name();
+            }
         }
+
         return $available;
     }
 
@@ -29,16 +32,34 @@ class PaymentGatewayManager
     {
         $key ??= config('payments.default_gateway');
         $class = config("payments.gateways.{$key}");
-        if (! $class) throw new InvalidArgumentException("Payment gateway [{$key}] is not installed.");
+        if (! $class) {
+            throw new InvalidArgumentException("Payment gateway [{$key}] is not installed.");
+        }
         $gateway = App::make($class);
-        if (! $gateway instanceof PaymentGateway) throw new InvalidArgumentException("Payment gateway [{$key}] has an invalid adapter.");
+        if (! $gateway instanceof PaymentGateway) {
+            throw new InvalidArgumentException("Payment gateway [{$key}] has an invalid adapter.");
+        }
+
         return $gateway;
     }
 
     public function name(?string $key = null): string
     {
         $key ??= config('payments.default_gateway');
-        if (! config("payments.gateways.{$key}")) return Str::headline($key).' (adapter unavailable)';
+        if (! config("payments.gateways.{$key}")) {
+            return Str::headline($key).' (adapter unavailable)';
+        }
+
         return $this->for($key)->name();
+    }
+
+    public function displayName(?string $key = null): string
+    {
+        $key ??= config('payments.default_gateway');
+        if (! config("payments.gateways.{$key}")) {
+            return 'our secure payment provider';
+        }
+
+        return $this->for($key)->displayName();
     }
 }

@@ -13,14 +13,33 @@ class PaystackGateway implements PaymentGateway
 {
     public function __construct(private PaymentSettings $settings) {}
 
-    public function key(): string { return 'paystack'; }
-    public function name(): string { return 'Paystack'; }
-    public function configured(): bool { return (bool) config('services.paystack.secret_key'); }
+    public function key(): string
+    {
+        return 'paystack';
+    }
+
+    public function name(): string
+    {
+        return 'Paystack';
+    }
+
+    public function displayName(): string
+    {
+        return 'our secure payment provider';
+    }
+
+    public function configured(): bool
+    {
+        return (bool) config('services.paystack.secret_key');
+    }
 
     private function client(): PendingRequest
     {
         $secret = config('services.paystack.secret_key');
-        if (! $secret) throw new RuntimeException($this->name().' credentials are not configured.');
+        if (! $secret) {
+            throw new RuntimeException($this->name().' credentials are not configured.');
+        }
+
         return Http::baseUrl('https://api.paystack.co')->withToken($secret)->acceptJson()->asJson()->timeout(20);
     }
 
@@ -40,9 +59,20 @@ class PaystackGateway implements PaymentGateway
         ], fn ($value) => $value !== null));
     }
 
-    public function verify(string $reference): array { return $this->request('get', '/transaction/verify/'.urlencode($reference)); }
-    public function initialize(array $payload): array { return $this->request('post', '/transaction/initialize', $payload); }
-    public function callbackReference(Request $request): ?string { return $request->query('reference'); }
+    public function verify(string $reference): array
+    {
+        return $this->request('get', '/transaction/verify/'.urlencode($reference));
+    }
+
+    public function initialize(array $payload): array
+    {
+        return $this->request('post', '/transaction/initialize', $payload);
+    }
+
+    public function callbackReference(Request $request): ?string
+    {
+        return $request->query('reference');
+    }
 
     public function chargeEventFromWebhook(Request $request): ?array
     {
@@ -53,7 +83,9 @@ class PaystackGateway implements PaymentGateway
         }
 
         $event = $request->json()->all();
-        if (! in_array(($event['event'] ?? null), ['charge.success', 'charge.failed'], true)) return null;
+        if (! in_array(($event['event'] ?? null), ['charge.success', 'charge.failed'], true)) {
+            return null;
+        }
         $data = $event['data'] ?? [];
         $authorization = $data['authorization'] ?? [];
 
@@ -85,6 +117,7 @@ class PaystackGateway implements PaymentGateway
         if (! $response->successful() || ! $response->json('status')) {
             throw new RuntimeException($response->json('message') ?: $this->name().' request failed.');
         }
+
         return $response->json('data', []);
     }
 }
