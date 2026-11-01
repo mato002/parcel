@@ -22,7 +22,7 @@
     </style>
 </head>
 <body>
-    <div class="topline"><div class="shell"><p class="availability"><span class="dot"></span> Claims support available</p><p>Secure card verification powered by {{ $gatewayName }}</p></div></div>
+    <div class="topline"><div class="shell"><p class="availability"><span class="dot"></span> Claims support available</p><p>Secure &amp; encrypted card verification</p></div></div>
     <header>
         <nav class="shell nav" aria-label="Main navigation">
             <a class="brand" href="{{ url('/') }}" aria-label="Parcel Claims home">
@@ -58,7 +58,7 @@
 
         <section class="assurance" aria-label="Service assurances"><div class="shell">
             <div class="assurance-item"><span class="assurance-icon"><i class="fa-solid fa-link" aria-hidden="true"></i></span><span><strong>Private verification links</strong><small>Unique to your claim</small></span></div>
-            <div class="assurance-item"><span class="assurance-icon"><i class="fa-regular fa-credit-card" aria-hidden="true"></i></span><span><strong>Secure {{ $gatewayName }} checkout</strong><small>Card details handled by the payment provider</small></span></div>
+            <div class="assurance-item"><span class="assurance-icon"><i class="fa-regular fa-credit-card" aria-hidden="true"></i></span><span><strong>Secure checkout</strong><small>Card details handled by the payment provider</small></span></div>
             <div class="assurance-item"><span class="assurance-icon"><i class="fa-solid fa-headset" aria-hidden="true"></i></span><span><strong>Claim team follow-up</strong><small>We continue after verification</small></span></div>
         </div></section>
 
@@ -66,10 +66,10 @@
             <div class="section-heading"><div><p class="eyebrow">A straightforward process</p><h2>What to expect</h2></div><p>We’ll guide you through the verification securely. You won’t need to create an account or share your card details with our team.</p></div>
             <div class="steps">
                 <article class="step"><span class="step-num">01 / Link</span><h3>Open your claim link</h3><p>Use the private link sent to your email or phone by the claims team.</p></article>
-                <article class="step"><span class="step-num">02 / Verify</span><h3>Confirm your card securely</h3><p>Complete the small verification payment with {{ $gatewayName }}. Your bank may ask you to approve it with a one-time code.</p></article>
+                <article class="step"><span class="step-num">02 / Verify</span><h3>Confirm your card securely</h3><p>Complete the small verification payment via secure checkout. Your bank may ask you to approve it with a one-time code.</p></article>
                 <article class="step"><span class="step-num">03 / Continue</span><h3>We pick up your claim</h3><p>Once the payment is confirmed, the claims team can continue processing your request.</p></article>
             </div>
-            <aside class="security" id="security"><div class="security-copy"><span class="security-badge" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span><span><h2>Your card details stay protected</h2><p>Card number and security code are entered directly in the payment provider’s secure checkout. This site stores only the payment authorization token and limited card details needed to manage your claim.</p></span></div><span>{{ $gatewayName }} secure checkout</span></aside>
+            <aside class="security" id="security"><div class="security-copy"><span class="security-badge" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span><span><h2>Your card details stay protected</h2><p>Card number and security code are entered directly in the payment provider’s secure checkout. This site stores only the payment authorization token and limited card details needed to manage your claim.</p></span></div><span>Encrypted &amp; secure checkout</span></aside>
         </div></section>
     </main>
 

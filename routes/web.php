@@ -5,11 +5,10 @@ use App\Http\Controllers\BillingController;
 use App\Http\Controllers\DeploymentOperationController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\PublicVerificationController;
-use App\Services\PaymentGatewayManager;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function (PaymentGatewayManager $gateways) {
-    return view('welcome', ['gatewayName' => $gateways->current()->name()]);
+Route::get('/', function () {
+    return view('welcome');
 })->name('home');
 
 Route::get('/verify/{token}', [PublicVerificationController::class, 'show'])->name('verify.show')->middleware('throttle:20,1');
