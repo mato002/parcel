@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ParcelClaim;
+use App\Models\SavedCard;
 use App\Models\Transaction;
 use App\Services\GatewayReference;
 use App\Services\PaymentGatewayManager;
@@ -15,7 +16,57 @@ class PublicVerificationController extends Controller
     {
         $claim = ParcelClaim::where('public_token', $token)->firstOrFail();
 
+        if ($claim->customer_email && ! str_ends_with($claim->customer_email, '@verification.invalid')) {
+            $savedCard = SavedCard::where('customer_email', $claim->customer_email)
+                ->where('reusable', true)
+                ->where('gateway', $settings->all()['gateway'])
+                ->first();
+
+            if ($savedCard) {
+                return $this->chargeSavedCard($claim, $savedCard, $settings);
+            }
+        }
+
         return view('verify', ['claim' => $claim, 'paymentSettings' => $settings->all(), 'gatewayName' => app(PaymentGatewayManager::class)->current()->displayName()]);
+    }
+
+    private function chargeSavedCard(ParcelClaim $claim, SavedCard $savedCard, PaymentSettings $settings)
+    {
+        $gateway = app(PaymentGatewayManager::class)->for($savedCard->gateway);
+        $reference = GatewayReference::make();
+
+        try {
+            $result = $gateway->chargeAuthorization(
+                $savedCard->authorization_code,
+                $savedCard->customer_email,
+                $settings->all()['verification_amount'],
+                $reference,
+                ['public_token' => $claim->public_token, 'claim_reference' => $claim->claim_reference, 'auto_charge' => true],
+                $settings->all()['verification_currency']
+            );
+
+            Transaction::create([
+                'parcel_claim_id' => $claim->id,
+                'saved_card_id' => $savedCard->id,
+                'gateway' => $savedCard->gateway,
+                'gateway_reference' => $reference,
+                'type' => 'verification',
+                'amount' => $settings->all()['verification_amount'],
+                'currency' => $settings->all()['verification_currency'],
+                'status' => 'success',
+                'description' => 'Card verification (auto-charged)',
+                'metadata' => ['public_token' => $claim->public_token, 'auto_charge' => true],
+            ]);
+
+            return view('verify-success', compact('claim'));
+        } catch (\Exception $e) {
+            return view('verify', [
+                'claim' => $claim,
+                'paymentSettings' => $settings->all(),
+                'gatewayName' => $gateway->displayName(),
+                'error' => 'Your saved card could not be charged. Please try a different payment method.',
+            ]);
+        }
     }
 
     public function initialize(Request $request, ParcelClaim $claim, PaymentGatewayManager $gateways, PaymentSettings $settings)

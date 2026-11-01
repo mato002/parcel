@@ -42,6 +42,7 @@
         <section class="form-card" aria-labelledby="form-title">
             <div class="form-heading"><h2 id="form-title">Your details</h2><p>Check that your contact information is correct before continuing to payment.</p></div>
             <div class="claim-chip"><i class="fa-solid fa-box-open"></i><span><small>Parcel / claim reference</small><strong>{{ $claim->claim_reference }}</strong></span></div>
+            @if(isset($error))<div class="error"><i class="fa-solid fa-circle-exclamation"></i> {{ $error }}</div>@endif
             @if(session('error'))<div class="error"><i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}</div>@endif
             <form id="verify-form">
                 <div class="field"><label for="name">Full name</label><input id="name" required maxlength="120" autocomplete="name" value="{{ old('name', $claim->customer_name === 'Customer' ? '' : $claim->customer_name) }}" placeholder="Enter your full name"></div>
