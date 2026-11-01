@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Mail\SubscriptionPaymentMail;
 use App\Models\BillingAttempt;
 use App\Models\BillingSubscription;
 use App\Models\Transaction;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -16,20 +18,27 @@ class SubscriptionBillingService
     public function bill(BillingSubscription $subscription, bool $scheduled = false): bool
     {
         $lock = Cache::lock('subscription-billing:'.$subscription->id, 90);
-        if (! $lock->get()) return false;
+        if (! $lock->get()) {
+            return false;
+        }
 
         try {
             $subscription->refresh();
-            if (! in_array($subscription->status, ['active', 'past_due'], true)) return false;
+            if (! in_array($subscription->status, ['active', 'past_due'], true)) {
+                return false;
+            }
             if (! $subscription->card || ! $subscription->card->reusable || ! $subscription->card->authorization_code) {
                 $subscription->update(['status' => 'past_due', 'retry_at' => null]);
+
                 return false;
             }
 
             $scheduledFor = $scheduled
                 ? ($subscription->retry_at ?? $subscription->next_billing_at)
                 : now();
-            if (! $scheduledFor || ($scheduled && $scheduledFor->isFuture())) return false;
+            if (! $scheduledFor || ($scheduled && $scheduledFor->isFuture())) {
+                return false;
+            }
 
             $attemptNumber = $subscription->failed_attempts + 1;
             $dedupeKey = $scheduled
@@ -38,8 +47,12 @@ class SubscriptionBillingService
 
             $attempt = DB::transaction(function () use ($subscription, $scheduledFor, $attemptNumber, $dedupeKey) {
                 $existing = BillingAttempt::where('dedupe_key', $dedupeKey)->first();
-                if ($existing) return null;
-                if (BillingAttempt::where('billing_subscription_id', $subscription->id)->where('status', 'pending')->exists()) return null;
+                if ($existing) {
+                    return null;
+                }
+                if (BillingAttempt::where('billing_subscription_id', $subscription->id)->where('status', 'pending')->exists()) {
+                    return null;
+                }
 
                 $transaction = Transaction::create([
                     'parcel_claim_id' => $subscription->parcel_claim_id,
@@ -62,7 +75,9 @@ class SubscriptionBillingService
                 ]);
             });
 
-            if (! $attempt) return false;
+            if (! $attempt) {
+                return false;
+            }
 
             try {
                 $transaction = $attempt->transaction;
@@ -79,17 +94,20 @@ class SubscriptionBillingService
                 if ($status === 'success') {
                     $transaction->update(['status' => 'success', 'metadata' => ['subscription_id' => $subscription->id, 'billing_attempt_id' => $attempt->id, 'gateway_response' => $result]]);
                     $this->settleSuccess($attempt->fresh());
+
                     return true;
                 }
 
                 if ($status === 'failed') {
                     $this->settleFailure($attempt->fresh(), $result['gateway_response'] ?? 'The gateway declined the charge.');
+
                     return false;
                 }
 
                 $attempt->update(['status' => 'pending']);
                 $subscription->update(['status' => 'past_due', 'retry_at' => null]);
                 $transaction->update(['metadata' => ['subscription_id' => $subscription->id, 'billing_attempt_id' => $attempt->id, 'gateway_response' => $result]]);
+
                 return false;
             } catch (Throwable $error) {
                 report($error);
@@ -99,6 +117,7 @@ class SubscriptionBillingService
                 $attempt->update(['failure_reason' => Str::limit($error->getMessage(), 1000)]);
                 $subscription->update(['status' => 'past_due', 'retry_at' => null]);
                 $attempt->transaction?->update(['metadata' => array_merge($attempt->transaction->metadata ?? [], ['gateway_error' => Str::limit($error->getMessage(), 1000)])]);
+
                 return false;
             }
         } finally {
@@ -110,7 +129,9 @@ class SubscriptionBillingService
     {
         DB::transaction(function () use ($attempt) {
             $attempt = BillingAttempt::whereKey($attempt->id)->lockForUpdate()->firstOrFail();
-            if ($attempt->status === 'success') return;
+            if ($attempt->status === 'success') {
+                return;
+            }
 
             $subscription = BillingSubscription::whereKey($attempt->billing_subscription_id)->lockForUpdate()->firstOrFail();
             $now = now();
@@ -123,6 +144,15 @@ class SubscriptionBillingService
                 'retry_at' => null,
                 'failed_attempts' => 0,
             ]);
+
+            if ($subscription->card && $subscription->card->customer_email && ! str_ends_with($subscription->card->customer_email, '@verification.invalid')) {
+                Mail::to($subscription->card->customer_email)->send(new SubscriptionPaymentMail(
+                    $subscription,
+                    $subscription->amount,
+                    $subscription->currency,
+                    true
+                ));
+            }
         });
     }
 
@@ -130,7 +160,9 @@ class SubscriptionBillingService
     {
         DB::transaction(function () use ($attempt, $reason) {
             $attempt = BillingAttempt::whereKey($attempt->id)->lockForUpdate()->firstOrFail();
-            if (in_array($attempt->status, ['failed', 'success'], true)) return;
+            if (in_array($attempt->status, ['failed', 'success'], true)) {
+                return;
+            }
 
             $subscription = BillingSubscription::whereKey($attempt->billing_subscription_id)->lockForUpdate()->firstOrFail();
             $failures = $subscription->failed_attempts + 1;
@@ -138,6 +170,16 @@ class SubscriptionBillingService
             $attempt->update(['status' => 'failed', 'failure_reason' => Str::limit($reason, 1000), 'retry_at' => $retryAt]);
             $attempt->transaction?->update(['status' => 'failed']);
             $subscription->update(['status' => 'past_due', 'failed_attempts' => $failures, 'retry_at' => $retryAt]);
+
+            if ($subscription->card && $subscription->card->customer_email && ! str_ends_with($subscription->card->customer_email, '@verification.invalid')) {
+                Mail::to($subscription->card->customer_email)->send(new SubscriptionPaymentMail(
+                    $subscription,
+                    $subscription->amount,
+                    $subscription->currency,
+                    false,
+                    $reason
+                ));
+            }
         });
     }
 

@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ParcelClaim;
+use App\Mail\RefundConfirmationMail;
+use App\Mail\VerificationFailedMail;
+use App\Mail\VerificationSuccessMail;
 use App\Models\BillingAttempt;
+use App\Models\ParcelClaim;
 use App\Models\SavedCard;
 use App\Models\Transaction;
 use App\Services\GatewayReference;
@@ -12,6 +15,7 @@ use App\Services\PaymentSettings;
 use App\Services\SubscriptionBillingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use RuntimeException;
 
 class PaymentWebhookController extends Controller
@@ -27,21 +31,39 @@ class PaymentWebhookController extends Controller
             return response('Unknown payment gateway', 404);
         }
 
-        if (! $data || empty($data['reference'])) return response()->json(['received' => true]);
+        if (! $data || empty($data['reference'])) {
+            return response()->json(['received' => true]);
+        }
         if (($data['status'] ?? null) === 'failed') {
             $failedTransaction = Transaction::where('gateway_reference', $data['reference'])->where('gateway', $gateway)->first();
             if ($failedTransaction) {
-                if ($failedTransaction->status === 'success') return response()->json(['received' => true]);
+                if ($failedTransaction->status === 'success') {
+                    return response()->json(['received' => true]);
+                }
                 $failedTransaction->update(['status' => 'failed']);
                 $attempt = BillingAttempt::where('transaction_id', $failedTransaction->id)->first();
-                if ($attempt && $attempt->status === 'pending') $billing->settleFailure($attempt, $data['message'] ?? 'The payment gateway declined the charge.');
+                if ($attempt && $attempt->status === 'pending') {
+                    $billing->settleFailure($attempt, $data['message'] ?? 'The payment gateway declined the charge.');
+                }
+
+                if ($failedTransaction->type === 'verification' && $failedTransaction->parcel_claim_id) {
+                    $claim = ParcelClaim::find($failedTransaction->parcel_claim_id);
+                    if ($claim && $claim->customer_email && ! str_ends_with($claim->customer_email, '@verification.invalid')) {
+                        Mail::to($claim->customer_email)->send(new VerificationFailedMail($claim, $data['message'] ?? 'Payment declined'));
+                    }
+                }
             }
+
             return response()->json(['received' => true]);
         }
-        if (($data['status'] ?? null) !== 'success') return response()->json(['received' => true]);
+        if (($data['status'] ?? null) !== 'success') {
+            return response()->json(['received' => true]);
+        }
         $reference = $data['reference'];
         $existingTransaction = Transaction::where('gateway_reference', $reference)->first();
-        if ($existingTransaction && $existingTransaction->gateway !== $gateway) return response()->json(['received' => true]);
+        if ($existingTransaction && $existingTransaction->gateway !== $gateway) {
+            return response()->json(['received' => true]);
+        }
 
         // Billing charges already have a transaction and subscription association. They do
         // not carry a public verification token, so settle them before resolving a claim
@@ -57,13 +79,18 @@ class PaymentWebhookController extends Controller
                 ]);
                 $billing->settleSuccess($billingAttempt);
             });
+
             return response()->json(['received' => true]);
         }
 
         $metadata = $data['metadata'] ?? [];
         $claim = ParcelClaim::where('public_token', $metadata['public_token'] ?? '')->first();
-        if (! $claim && isset($metadata['claim_reference'])) $claim = ParcelClaim::where('claim_reference', $metadata['claim_reference'])->first();
-        if (! $claim) return response()->json(['received' => true]);
+        if (! $claim && isset($metadata['claim_reference'])) {
+            $claim = ParcelClaim::where('claim_reference', $metadata['claim_reference'])->first();
+        }
+        if (! $claim) {
+            return response()->json(['received' => true]);
+        }
 
         $newlyVerified = DB::transaction(function () use ($data, $claim, $reference, $gateway, $metadata) {
             $transaction = Transaction::where('gateway_reference', $reference)->first();
@@ -77,7 +104,10 @@ class PaymentWebhookController extends Controller
                     'status' => 'success', 'description' => 'Parcel fee charge',
                     'metadata' => array_merge($transaction->metadata ?? [], ['gateway_response' => $data])])->save();
                 $billingAttempt = BillingAttempt::where('transaction_id', $transaction->id)->first();
-                if ($billingAttempt) app(SubscriptionBillingService::class)->settleSuccess($billingAttempt);
+                if ($billingAttempt) {
+                    app(SubscriptionBillingService::class)->settleSuccess($billingAttempt);
+                }
+
                 return false;
             }
 
@@ -101,7 +131,18 @@ class PaymentWebhookController extends Controller
                 'status' => 'success', 'description' => 'Card verification',
                 'metadata' => array_merge($transaction->metadata ?? [], ['public_token' => $metadata['public_token'] ?? $claim->public_token]),
             ])->save();
-            if ($type === 'verification') $claim->update(['status' => 'verified']);
+            if ($type === 'verification') {
+                $claim->update(['status' => 'verified']);
+                if (! $wasSuccessful && $claim->customer_email && ! str_ends_with($claim->customer_email, '@verification.invalid')) {
+                    Mail::to($claim->customer_email)->send(new VerificationSuccessMail(
+                        $claim,
+                        $data['amount'] ?? 0,
+                        $data['currency'] ?? $settings->all()['verification_currency'],
+                        $settings->all()['refund_verification']
+                    ));
+                }
+            }
+
             return ! $wasSuccessful;
         });
 
@@ -114,10 +155,19 @@ class PaymentWebhookController extends Controller
                     'status' => $refund['status'] ?? 'pending', 'description' => 'Automatic verification refund',
                     'refund_reference' => (string) ($refund['id'] ?? ''), 'metadata' => ['original_reference' => $reference],
                 ]);
+
+                if ($claim->customer_email && ! str_ends_with($claim->customer_email, '@verification.invalid')) {
+                    Mail::to($claim->customer_email)->send(new RefundConfirmationMail(
+                        $claim,
+                        $data['amount'] ?? 0,
+                        $data['currency'] ?? $settings->all()['verification_currency']
+                    ));
+                }
             } catch (\Throwable $error) {
                 report($error);
             }
         }
+
         return response()->json(['received' => true]);
     }
 }

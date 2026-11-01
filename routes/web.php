@@ -23,6 +23,10 @@ Route::post('/deploy-ops/{operation}', DeploymentOperationController::class)
 
 Route::get('/admin/login', [AdminController::class, 'loginForm'])->name('admin.login');
 Route::post('/admin/login', [AdminController::class, 'login'])->middleware('throttle:5,1');
+Route::get('/admin/forgot-password', [AdminController::class, 'forgotPasswordForm'])->name('admin.password.request');
+Route::post('/admin/forgot-password', [AdminController::class, 'sendPasswordResetLink'])->name('admin.password.email');
+Route::get('/admin/reset-password/{token}', [AdminController::class, 'resetPasswordForm'])->name('admin.password.reset');
+Route::post('/admin/reset-password', [AdminController::class, 'resetPassword'])->name('admin.password.update');
 Route::middleware(['auth', 'can:manage-payments'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminController::class, 'index'])->name('index');
     Route::get('/claims', [AdminController::class, 'claims'])->name('claims');

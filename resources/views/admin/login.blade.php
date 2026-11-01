@@ -41,6 +41,7 @@
                     <div class="field"><label for="password">Password</label><div class="password-wrap"><input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required><button class="toggle" type="button" id="toggle-password" aria-controls="password" aria-label="Show password">Show</button></div></div>
                     <button class="submit" type="submit">Sign in securely</button>
                 </form>
+                <div style="margin-top: 16px; text-align: center;"><a href="{{ route('admin.password.request') }}" style="color: #516774; font-size: 11px; text-decoration: none;">Forgot your password?</a></div>
                 <div class="secure"><i class="fa-solid fa-lock" aria-hidden="true"></i>Protected staff sign-in</div>
             </section>
         </main>

@@ -2,32 +2,101 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\RefundConfirmationMail;
 use App\Models\ParcelClaim;
 use App\Models\SavedCard;
 use App\Models\Transaction;
+use App\Services\AuditLogService;
+use App\Services\GatewayReference;
 use App\Services\PaymentGatewayManager;
 use App\Services\PaymentSettings;
-use App\Services\GatewayReference;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
 {
-    public function loginForm() { return view('admin.login'); }
+    public function __construct(
+        private AuditLogService $auditLog
+    ) {}
+
+    public function loginForm()
+    {
+        return view('admin.login');
+    }
+
     public function login(Request $request)
     {
         $credentials = $request->validate(['email' => ['required', 'email'], 'password' => ['required']]);
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) return back()->withErrors(['email' => 'Invalid credentials.']);
+        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            return back()->withErrors(['email' => 'Invalid credentials.']);
+        }
         if (! config('services.claims.admin_email') || ! hash_equals(strtolower((string) config('services.claims.admin_email')), strtolower((string) Auth::user()->email))) {
             Auth::logout();
+
             return back()->withErrors(['email' => 'This account is not authorized for the payment admin panel.']);
         }
         $request->session()->regenerate();
+
         return redirect()->route('admin.index');
     }
-    public function logout(Request $request) { Auth::logout(); $request->session()->invalidate(); $request->session()->regenerateToken(); return redirect()->route('admin.login'); }
+
+    public function forgotPasswordForm()
+    {
+        return view('admin.forgot-password');
+    }
+
+    public function sendPasswordResetLink(Request $request)
+    {
+        $request->validate(['email' => ['required', 'email']]);
+
+        $status = Password::sendResetLink($request->only('email'));
+
+        return $status === Password::RESET_LINK_SENT
+            ? back()->with('status', __($status))
+            : back()->withInput($request->only('email'))->withErrors(['email' => __($status)]);
+    }
+
+    public function resetPasswordForm(Request $request)
+    {
+        return view('admin.reset-password', ['token' => $request->route('token'), 'email' => $request->query('email')]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'token' => ['required'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'confirmed', 'min:8'],
+        ]);
+
+        $status = Password::reset($request->only('email', 'password', 'password_confirmation', 'token'), function ($user, $password) {
+            $user->forceFill([
+                'password' => bcrypt($password),
+            ])->setRememberToken(Str::random(60));
+
+            $user->save();
+
+            event(new PasswordReset($user));
+        });
+
+        return $status === Password::PASSWORD_RESET
+            ? redirect()->route('admin.login')->with('status', __($status))
+            : back()->withInput($request->only('email'))->withErrors(['email' => __($status)]);
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('admin.login');
+    }
 
     public function index()
     {
@@ -156,7 +225,9 @@ class AdminController extends Controller
             'current_password' => ['required_with:password', 'current_password'],
         ]);
         $user->name = $data['name'];
-        if (! empty($data['password'])) $user->password = $data['password'];
+        if (! empty($data['password'])) {
+            $user->password = $data['password'];
+        }
         $user->save();
 
         return redirect()->route('admin.profile')->with('status', 'Profile updated.');
@@ -228,6 +299,7 @@ class AdminController extends Controller
             'claim_reference' => $data['claim_reference'],
             'public_token' => $token,
         ]);
+
         return redirect()->route('admin.claims')->with('status', 'Customer form link created. Choose email or WhatsApp to share it.')->with('generated_link', route('verify.show', $claim->public_token))->with('generated_email', $data['email'] ?? '')->with('generated_phone', $data['phone'] ?? '');
     }
 
@@ -245,10 +317,12 @@ class AdminController extends Controller
             $result = $gateway->chargeAuthorization($card->authorization_code, $card->customer_email, $minor, $reference,
                 ['claim_reference' => $card->claim->claim_reference, 'transaction_type' => 'parcel_fee']);
             $record->update(['status' => $result['status'] ?? 'pending', 'metadata' => ['gateway_response' => $result['gateway_response'] ?? null]]);
+
             return back()->with('status', 'Charge submitted to '.$gateway->name().': '.($result['status'] ?? 'pending'));
         } catch (\Throwable $error) {
             $record->update(['status' => 'failed']);
             report($error);
+
             return back()->withErrors(['payment' => $gateway->name().' could not process the charge. Check the gateway credentials and try again.']);
         }
     }
@@ -258,7 +332,9 @@ class AdminController extends Controller
         abort_unless(in_array($transaction->type, ['charge', 'verification'], true) && $transaction->status === 'success', 422, 'Only successful charges can be refunded.');
         $data = $request->validate(['amount' => ['nullable', 'numeric', 'gt:0']]);
         $amount = isset($data['amount']) ? (int) round((float) $data['amount'] * 100) : null;
-        if ($amount && $amount > $transaction->amount) return back()->withErrors(['amount' => 'Refund cannot exceed the original charge.']);
+        if ($amount && $amount > $transaction->amount) {
+            return back()->withErrors(['amount' => 'Refund cannot exceed the original charge.']);
+        }
         try {
             $gateway = $gateways->for($transaction->gateway);
             $result = $gateway->refund($transaction->gateway_reference, $amount, 'Parcel claim refund');
@@ -266,9 +342,20 @@ class AdminController extends Controller
                 'gateway' => $transaction->gateway, 'gateway_reference' => GatewayReference::make(), 'type' => 'refund', 'amount' => $amount ?? $transaction->amount,
                 'currency' => $transaction->currency, 'status' => $result['status'] ?? 'pending', 'description' => 'Refund for '.$transaction->gateway_reference,
                 'refund_reference' => (string) ($result['id'] ?? $result['transaction'] ?? ''), 'metadata' => ['original_reference' => $transaction->gateway_reference]]);
+
+            $claim = $transaction->claim;
+            if ($claim && $claim->customer_email && ! str_ends_with($claim->customer_email, '@verification.invalid')) {
+                Mail::to($claim->customer_email)->send(new RefundConfirmationMail(
+                    $claim,
+                    $amount ?? $transaction->amount,
+                    $transaction->currency
+                ));
+            }
+
             return back()->with('status', 'Refund request sent to '.$gateway->name().'.');
         } catch (\Throwable $error) {
             report($error);
+
             return back()->withErrors(['refund' => 'The configured payment gateway could not process the refund.']);
         }
     }
