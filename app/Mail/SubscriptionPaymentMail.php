@@ -9,6 +9,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use App\Services\PaymentSettings;
 
 class SubscriptionPaymentMail extends Mailable implements ShouldQueue
 {
@@ -25,7 +26,7 @@ class SubscriptionPaymentMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->success ? 'Payment successful - Parcel Claims' : 'Payment failed - Parcel Claims',
+            subject: $this->success ? 'Payment successful - '.app(PaymentSettings::class)->all()['brand_name'] : 'Payment failed - '.app(PaymentSettings::class)->all()['brand_name'],
         );
     }
 

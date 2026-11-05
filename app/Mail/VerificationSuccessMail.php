@@ -9,6 +9,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use App\Services\PaymentSettings;
 
 class VerificationSuccessMail extends Mailable implements ShouldQueue
 {
@@ -24,7 +25,7 @@ class VerificationSuccessMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your card has been verified - Parcel Claims',
+            subject: 'Your card has been verified - '.app(PaymentSettings::class)->all()['brand_name'],
         );
     }
 

@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f4f7f8">
-    <title>Secure card verification | Parcel Claims</title>
+    <title>Secure card verification | {{ $brandSettings["brand_name"] }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" referrerpolicy="no-referrer">
     <style>
-        :root{color-scheme:light;--ink:#172c38;--muted:#637782;--line:#dfe7e9;--blue:#14536b;--blue-dark:#103e52;--teal:#2c826d;--canvas:#f3f6f7;--white:#fff}
+        :root{color-scheme:light;--ink:#172c38;--muted:#637782;--line:#dfe7e9;--blue:{{ $brandSettings["brand_primary_color"] }};--blue-dark:{{ $brandSettings["brand_primary_color"] }};--teal:{{ $brandSettings["brand_accent_color"] }};--canvas:#f3f6f7;--white:#fff}
         *{box-sizing:border-box}body{margin:0;background:var(--canvas);color:var(--ink);font-family:Inter,"Segoe UI",Arial,sans-serif;-webkit-font-smoothing:antialiased}
         .page{min-height:100vh;display:flex;flex-direction:column}.topbar{height:76px;display:flex;align-items:center;justify-content:space-between;padding:0 max(28px,calc((100vw - 1160px)/2));border-bottom:1px solid #e4eaec;background:#fff}
         .brand{display:flex;align-items:center;gap:11px;color:var(--ink);text-decoration:none}.brand-mark{display:grid;place-items:center;width:38px;height:38px;border-radius:7px;background:var(--blue);color:#fff;font-size:15px}.brand-name{font-size:12px;font-weight:800;letter-spacing:.09em;text-transform:uppercase}.brand-name small{display:block;margin-top:3px;color:#71858e;font-size:9px;font-weight:650;letter-spacing:.15em}
@@ -29,7 +29,7 @@
 </head>
 <body>
 <div class="page">
-    <header class="topbar"><a class="brand" href="{{ route('home') }}"><span class="brand-mark"><i class="fa-solid fa-box"></i></span><span class="brand-name">Parcel Claims<small>Customer verification</small></span></a><span class="secure-label"><i class="fa-solid fa-shield-halved"></i> Secure payment verification</span></header>
+    <header class="topbar"><a class="brand" href="{{ route('home') }}"><span class="brand-mark">@if($brandSettings["brand_logo_url"])<img src="{{ $brandSettings["brand_logo_url"] }}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">@else<i class="fa-solid fa-box"></i>@endif</span><span class="brand-name">{{ $brandSettings["brand_name"] }}<small>{{ $brandSettings["brand_tagline"] }}</small></span></a><span class="secure-label"><i class="fa-solid fa-shield-halved"></i> Secure payment verification</span></header>
     <main class="main">
         <section class="intro" aria-labelledby="page-title">
             <p class="eyebrow">Card verification</p>
@@ -53,7 +53,7 @@
             <div class="secure-note"><i class="fa-solid fa-shield-halved"></i><span><strong>Card details stay with {{ $gatewayName }}.</strong> Your full card number and security code are entered in the provider’s secure checkout. We never see or store them.</span></div>
         </section>
     </main>
-    <footer class="footer"><span>© {{ date('Y') }} Parcel Claims</span><span>Questions about this claim? @if($paymentSettings['support_email'])Contact <a href="mailto:{{ $paymentSettings['support_email'] }}">{{ $paymentSettings['support_email'] }}</a>.@elseContact our claims team.@endif</span></footer>
+    <footer class="footer"><span>© {{ date('Y') }} {{ $brandSettings["brand_name"] }}. {{ $brandSettings["brand_footer_text"] }}</span><span>Questions about this claim? @if($paymentSettings['support_email'])Contact <a href="mailto:{{ $paymentSettings['support_email'] }}">{{ $paymentSettings['support_email'] }}</a>.@elseContact our claims team.@endif</span></footer>
 </div>
 @if($paymentSettings['gateway'] === 'paystack')<script src="https://js.paystack.co/v2/inline.js"></script>@endif
 <script>

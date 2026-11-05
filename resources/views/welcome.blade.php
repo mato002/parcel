@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f5f1">
-    <title>Parcel Claims | Claims support</title>
+    <title>{{ $brandSettings["brand_name"] }} | {{ $brandSettings["brand_tagline"] }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" referrerpolicy="no-referrer">
     <style>
-        :root{color-scheme:light;--ink:#172b3a;--muted:#586b78;--line:#dce2e3;--paper:#f6f5f1;--white:#fff;--blue:#124a68;--blue-dark:#10394f;--orange:#d87843;--green:#356d5a}
+        :root{color-scheme:light;--ink:#172b3a;--muted:#586b78;--line:#dce2e3;--paper:#f6f5f1;--white:#fff;--blue:{{ $brandSettings["brand_primary_color"] }};--blue-dark:{{ $brandSettings["brand_primary_color"] }};--orange:{{ $brandSettings["brand_accent_color"] }};--green:#356d5a}
         *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,"Segoe UI",Arial,sans-serif;-webkit-font-smoothing:antialiased}a{color:inherit}.shell{width:min(1140px,calc(100% - 48px));margin:auto}
         .topline{height:36px;background:var(--blue-dark);color:#d7e4e8;font-size:12px;letter-spacing:.025em}.topline .shell{height:100%;display:flex;align-items:center;justify-content:space-between}.topline p{margin:0}.availability{display:flex;align-items:center;gap:8px}.dot{width:7px;height:7px;border-radius:50%;background:#87c7a8;box-shadow:0 0 0 3px #87c7a822}
         header{height:78px;background:#fff;border-bottom:1px solid #e5e8e5}.nav{height:100%;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;align-items:center;gap:12px;text-decoration:none}.brandmark{display:grid;place-items:center;width:38px;height:38px;border-radius:9px;background:var(--blue);color:#fff}.brandname{font-size:14px;font-weight:750;letter-spacing:.07em;text-transform:uppercase}.brandname small{display:block;margin-top:3px;color:#7b898d;font-size:9px;font-weight:600;letter-spacing:.16em}.navright{display:flex;align-items:center;gap:30px}.navright a{font-size:13px;text-decoration:none;color:#51616b}.navright a:hover{color:var(--blue)}.navright .staff{padding:10px 15px;border:1px solid #cdd7da;border-radius:5px;color:var(--blue);font-weight:650}
@@ -25,9 +25,9 @@
     <div class="topline"><div class="shell"><p class="availability"><span class="dot"></span> Claims support available</p><p>Secure &amp; encrypted card verification</p></div></div>
     <header>
         <nav class="shell nav" aria-label="Main navigation">
-            <a class="brand" href="{{ url('/') }}" aria-label="Parcel Claims home">
-                <span class="brandmark" aria-hidden="true"><i class="fa-solid fa-boxes-stacked"></i></span>
-                <span class="brandname">Parcel Claims<small>Customer support</small></span>
+            <a class="brand" href="{{ url('/') }}" aria-label="{{ $brandSettings["brand_name"] }} home">
+                <span class="brandmark" aria-hidden="true">@if($brandSettings["brand_logo_url"])<img src="{{ $brandSettings["brand_logo_url"] }}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">@else<i class="fa-solid fa-boxes-stacked"></i>@endif</span>
+                <span class="brandname">{{ $brandSettings["brand_name"] }}<small>{{ $brandSettings["brand_tagline"] }}</small></span>
             </a>
             <div class="navright"><a href="#process">How it works</a><a href="#security">Card security</a><a class="staff" href="{{ route('admin.login') }}">Staff sign in</a></div>
         </nav>
@@ -73,6 +73,6 @@
         </div></section>
     </main>
 
-    <footer><div class="shell footer"><p>© {{ date('Y') }} Parcel Claims. All rights reserved.</p><p>Questions about your claim? Reply to the message from your claims representative.</p></div></footer>
+    <footer><div class="shell footer"><p>© {{ date('Y') }} {{ $brandSettings["brand_name"] }}. {{ $brandSettings["brand_footer_text"] }}</p><p>@if($paymentSettings["support_email"])<a href="mailto:{{ $paymentSettings["support_email"] }}">{{ $paymentSettings["support_email"] }}</a>@elseif($paymentSettings["support_phone"]){{ $paymentSettings["support_phone"] }}@elseQuestions about your claim? Contact your claims team.@endif</p></div></footer>
 </body>
 </html>

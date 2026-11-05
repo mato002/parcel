@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use Illuminate\Auth\Notifications\ResetPassword as BaseResetPassword;
 use Illuminate\Notifications\Messages\MailMessage;
+use App\Services\PaymentSettings;
 
 class AdminPasswordResetNotification extends BaseResetPassword
 {
@@ -18,7 +19,7 @@ class AdminPasswordResetNotification extends BaseResetPassword
     public function toMail($notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Reset your password - Parcel Claims')
+            ->subject('Reset your password - '.app(PaymentSettings::class)->all()['brand_name'])
             ->line('You are receiving this email because we received a password reset request for your account.')
             ->action('Reset Password', $this->resetUrl($notifiable))
             ->line('This password reset link will expire in 60 minutes.')

@@ -246,12 +246,19 @@ class AdminController extends Controller
             'verification_currency' => ['required', Rule::in(['KES', 'NGN', 'GHS', 'USD'])],
             'verification_amount' => ['required', 'numeric', 'min:0.01', 'max:1000'],
             'support_email' => ['nullable', 'email', 'max:255'],
+            'support_phone' => ['nullable', 'string', 'max:40'],
+            'brand_name' => ['required', 'string', 'max:100'],
+            'brand_tagline' => ['nullable', 'string', 'max:140'],
+            'brand_logo_url' => ['nullable', 'url', 'max:2048'],
+            'brand_primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'brand_accent_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'brand_footer_text' => ['nullable', 'string', 'max:255'],
         ]);
         $data['verification_amount'] = (string) round((float) $data['verification_amount'] * 100);
         $data['refund_verification'] = $request->boolean('refund_verification') ? '1' : '0';
         $settings->save($data);
 
-        return redirect()->route('admin.settings')->with('status', 'Payment settings saved. Gateway credentials remain managed by the configured provider adapter.');
+        return redirect()->route('admin.settings')->with('status', 'Settings saved.');
     }
 
     private function panel(string $section)

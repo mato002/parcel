@@ -9,6 +9,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use App\Services\PaymentSettings;
 
 class VerificationFailedMail extends Mailable implements ShouldQueue
 {
@@ -22,7 +23,7 @@ class VerificationFailedMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Verification failed - Parcel Claims',
+            subject: 'Verification failed - '.app(PaymentSettings::class)->all()['brand_name'],
         );
     }
 
