@@ -33,6 +33,7 @@ Route::middleware(['auth', 'can:manage-payments'])->prefix('admin')->name('admin
     Route::get('/claims/create', [AdminController::class, 'createClaim'])->name('claims.create');
     Route::post('/claims', [AdminController::class, 'storeClaim'])->name('claims.store');
     Route::post('/claims/bulk-status', [AdminController::class, 'bulkUpdateClaims'])->name('claims.bulk-status');
+    Route::get('/claims/{claim}', [AdminController::class, 'showClaim'])->name('claims.show');
     Route::get('/claims/{claim}/edit', [AdminController::class, 'editClaim'])->name('claims.edit');
     Route::put('/claims/{claim}', [AdminController::class, 'updateClaim'])->name('claims.update');
     Route::delete('/claims/{claim}', [AdminController::class, 'destroyClaim'])->name('claims.destroy');

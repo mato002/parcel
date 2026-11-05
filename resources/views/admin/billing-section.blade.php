@@ -33,7 +33,7 @@
         @endif
     </section>
 @elseif($section === 'billing_product_form')
-    <dialog class="modal page-modal" data-auto-open><a class="page-modal-back" href="{{ route('admin.billing') }}"><i class="fa-solid fa-arrow-left"></i> Back to billing</a>
+    <dialog class="modal page-modal" data-auto-open><div class="page-modal-toolbar"><a class="page-modal-back" href="{{ route('admin.billing') }}"><i class="fa-solid fa-arrow-left"></i> Back to billing</a><a class="modal-close-icon" href="{{ route('admin.billing') }}" aria-label="Close" title="Close"><i class="fa-solid fa-xmark"></i></a></div>
     <section class="panel"><div class="panel-head"><div class="panel-title"><h2>Plan details</h2><p>Set the price and renewal interval for this service.</p></div></div>
         <form method="post" action="{{ $billingProduct->exists ? route('admin.billing.products.update', $billingProduct) : route('admin.billing.products.store') }}">@csrf @if($billingProduct->exists)@method('PUT')@endif
             <div class="modal-body"><div class="form-grid">
@@ -48,7 +48,7 @@
     </section>
     </dialog>
 @elseif($section === 'subscription_form')
-    <dialog class="modal page-modal" data-auto-open><a class="page-modal-back" href="{{ route('admin.billing') }}"><i class="fa-solid fa-arrow-left"></i> Back to billing</a>
+    <dialog class="modal page-modal" data-auto-open><div class="page-modal-toolbar"><a class="page-modal-back" href="{{ route('admin.billing') }}"><i class="fa-solid fa-arrow-left"></i> Back to billing</a><a class="modal-close-icon" href="{{ route('admin.billing') }}" aria-label="Close" title="Close"><i class="fa-solid fa-xmark"></i></a></div>
     <section class="panel"><div class="panel-head"><div class="panel-title"><h2>Customer agreement</h2><p>Choose a service, reusable card, and start date. Record where the customer agreed to these charges.</p></div></div>
         @if($billingProducts->isEmpty() || $billingClaims->isEmpty())<div class="empty"><h3>Set up billing first</h3><p>You need an active plan and a customer with a reusable saved card.</p><a class="primary" href="{{ route('admin.billing') }}">Back to billing</a></div>
         @else

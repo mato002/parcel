@@ -108,6 +108,20 @@ class AdminController extends Controller
         return $this->panel('claims');
     }
 
+    public function showClaim(ParcelClaim $claim)
+    {
+        $claim->load(['cards', 'transactions', 'subscriptions']);
+
+        return view('admin.index', [
+            'section' => 'claim_detail', 'claim' => $claim,
+            'claims' => collect(), 'cards' => collect(), 'transactions' => collect(),
+            'metrics' => ['claims' => 0, 'verified' => 0, 'saved_cards' => 0, 'charge_volume' => 0],
+            'paymentSettings' => app(PaymentSettings::class)->all(),
+            'availableGateways' => app(PaymentGatewayManager::class)->available(),
+            'gatewayConfigured' => app(PaymentGatewayManager::class)->current()->configured(),
+        ]);
+    }
+
     public function createClaim()
     {
         return view('admin.index', [
