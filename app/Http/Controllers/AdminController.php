@@ -294,9 +294,9 @@ class AdminController extends Controller
         $cards = collect();
         $transactions = collect();
 
-        if (in_array($section, ['overview', 'claims'], true)) {
+        if ($section === 'claims') {
             $claimQuery = ParcelClaim::with(['cards', 'transactions'])->latest();
-            $claims = $section === 'overview' ? $claimQuery->limit(5)->get() : $claimQuery->get();
+            $claims = $claimQuery->get();
         }
 
         if ($section === 'cards') {
@@ -315,9 +315,22 @@ class AdminController extends Controller
             'charge_volume' => Transaction::where('type', 'charge')->where('status', 'success')->sum('amount'),
         ];
 
+        $overview = [];
+        if ($section === 'overview') {
+            $overview = [
+                'pending_claims' => ParcelClaim::where('status', 'pending')->count(),
+                'resolved_claims' => ParcelClaim::where('status', 'resolved')->count(),
+                'pending_payments' => Transaction::whereIn('status', ['pending', 'failed'])->count(),
+                'today_volume' => Transaction::where('type', 'charge')->where('status', 'success')->whereDate('created_at', today())->sum('amount'),
+                'today_transactions' => Transaction::whereDate('created_at', today())->count(),
+                'recent_transactions' => Transaction::with('claim')->latest()->limit(8)->get(),
+            ];
+        }
+
         return view('admin.index', [
             'section' => $section, 'claims' => $claims, 'cards' => $cards,
             'transactions' => $transactions, 'metrics' => $metrics,
+            'overview' => $overview,
             'paymentSettings' => app(PaymentSettings::class)->all(),
             'availableGateways' => app(PaymentGatewayManager::class)->available(),
             'gatewayConfigured' => app(PaymentGatewayManager::class)->current()->configured(),

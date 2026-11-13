@@ -51,9 +51,10 @@
         .alert{display:flex;align-items:center;gap:9px;margin-bottom:18px;padding:12px 14px;border:1px solid #cce2d5;border-radius:4px;background:var(--green-soft);color:#315f4d;font-size:11px}.alert.error{border-color:#f0d2ce;background:var(--red-soft);color:var(--red)}
         .copy-field{display:flex;flex:1;min-width:180px}.copy-field input{width:100%;min-width:0;padding:9px 11px;border:1px solid #cfdcdd;border-radius:4px 0 0 4px;background:white;color:var(--ink);font-size:11px}.copy-field button{padding:0 12px;border:1px solid var(--blue);border-radius:0 4px 4px 0;background:var(--blue);color:#fff;font-size:10px;font-weight:650;cursor:pointer}
         .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:25px}.metric{position:relative;overflow:hidden;min-height:103px;padding:17px 18px;border:1px solid var(--line);border-radius:5px;background:#fff;box-shadow:var(--shadow)}
+        .overview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}.overview-summary{min-width:0}.overview-status-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:17px 20px}.overview-status-list a{display:flex;justify-content:space-between;align-items:center;gap:8px;color:#536873;font-size:11px}.overview-status-list a span{display:flex;align-items:center;gap:7px}.overview-status-list a strong{font-size:17px;color:var(--ink)}.overview-progress{height:4px;margin:0 20px 18px;background:#edf1f2;border-radius:5px;overflow:hidden}.overview-progress span{display:block;height:100%;background:var(--green);border-radius:5px}.today-stats{display:flex;gap:30px;padding:18px 20px}.today-stats div{display:grid;gap:4px}.today-stats strong{font-size:17px;color:var(--ink)}.today-stats span{color:var(--muted);font-size:10px}.overview-link{display:block;padding:12px 20px;border-top:1px solid var(--line);color:var(--blue);font-size:10px;font-weight:700}.overview-link i{margin-left:5px}.overview-activity{margin-bottom:20px}.activity-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:13px 18px;border-top:1px solid #edf0f1}.activity-icon{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--blue-soft);color:var(--blue)}.activity-icon.success{background:var(--green-soft);color:var(--green)}.activity-icon.waiting{background:var(--amber-soft);color:var(--amber)}.activity-icon.failed{background:var(--red-soft);color:var(--red)}.activity-main strong,.activity-main small{display:block}.activity-main strong{font-size:11px;color:#304550}.activity-main small{margin-top:4px;font-size:9px;color:#839097}.activity-amount{font-size:11px;white-space:nowrap;color:#304550}
         .metric-top{display:flex;align-items:center;justify-content:space-between;color:#73818a;font-size:10px;font-weight:550}.metric-icon{display:grid;place-items:center;width:29px;height:29px;border-radius:5px;background:var(--blue-soft);color:var(--blue);font-size:12px}.metric-value{display:block;margin-top:12px;font-size:22px;font-weight:700;letter-spacing:-.04em}.metric-note{margin-left:7px;color:#87939a;font-size:9px;font-weight:500;letter-spacing:0}
         .panel{overflow:hidden;border:1px solid var(--line);border-radius:5px;background:#fff;box-shadow:var(--shadow)}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:17px 19px;border-bottom:1px solid var(--line)}
-        .panel-title h2{margin:0;font-size:13px;font-weight:700}.panel-title p{margin:5px 0 0;color:#87939a;font-size:10px}.tools{display:flex;align-items:center;gap:8px}
+        .panel-title h2{margin:0;font-size:13px;font-weight:700}.panel-title p{margin:5px 0 0;color:#87939a;font-size:10px}.tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}.table-row-count{white-space:nowrap}
         .search{position:relative}.search i{position:absolute;top:50%;left:11px;transform:translateY(-50%);color:#829098;font-size:10px}.search input{width:205px;height:34px;padding:0 11px 0 30px;border:1px solid #d8e0e3;border-radius:4px;outline:none;font-size:10px}.search input:focus,.filter:focus{border-color:#76a3b4;box-shadow:0 0 0 3px #17617d12}
         .filter{height:34px;padding:0 25px 0 10px;border:1px solid #d8e0e3;border-radius:4px;background:#fff;color:#50636e;font-size:10px;outline:none}.claim-list{display:grid;gap:0}.claim-item{padding:18px 19px;border-bottom:1px solid #edf0f1}.claim-item:last-child{border-bottom:0}
         .claim-main{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(170px,.8fr) minmax(205px,1fr) auto;align-items:center;gap:15px}
@@ -132,16 +133,23 @@
 
                 @if($section === 'overview')
                 <section class="metrics" aria-label="Claims summary">
-                    <article class="metric"><div class="metric-top"><span>Total claims</span><span class="metric-icon"><i class="fa-solid fa-box"></i></span></div><strong class="metric-value">{{ number_format($metrics['claims']) }}</strong></article>
-                    <article class="metric"><div class="metric-top"><span>Verified claims</span><span class="metric-icon" style="background:var(--green-soft);color:var(--green)"><i class="fa-solid fa-circle-check"></i></span></div><strong class="metric-value">{{ number_format($metrics['verified']) }}<span class="metric-note">{{ $metrics['claims'] ? number_format($metrics['verified'] / $metrics['claims'] * 100, 0).'%' : '0%' }} of claims</span></strong></article>
-                    <article class="metric"><div class="metric-top"><span>Saved cards</span><span class="metric-icon"><i class="fa-regular fa-credit-card"></i></span></div><strong class="metric-value">{{ number_format($metrics['saved_cards']) }}</strong></article>
-                    <article class="metric"><div class="metric-top"><span>Successful charges</span><span class="metric-icon" style="background:var(--amber-soft);color:var(--amber)"><i class="fa-solid fa-arrow-trend-up"></i></span></div><strong class="metric-value">{{ number_format($metrics['charge_volume'] / 100, 2) }}<span class="metric-note">{{ $paymentSettings['currency'] }}</span></strong></article>
+                    <article class="metric"><div class="metric-top"><span>Successful charges</span><span class="metric-icon"><i class="fa-solid fa-arrow-trend-up"></i></span></div><strong class="metric-value">{{ number_format($metrics['charge_volume'] / 100, 2) }}<span class="metric-note">{{ $paymentSettings['currency'] }} all time</span></strong></article>
+                    <article class="metric"><div class="metric-top"><span>Today’s charge volume</span><span class="metric-icon" style="background:var(--green-soft);color:var(--green)"><i class="fa-solid fa-coins"></i></span></div><strong class="metric-value">{{ number_format($overview['today_volume'] / 100, 2) }}<span class="metric-note">{{ $paymentSettings['currency'] }}</span></strong></article>
+                    <article class="metric"><div class="metric-top"><span>Needs attention</span><span class="metric-icon" style="background:var(--amber-soft);color:var(--amber)"><i class="fa-solid fa-triangle-exclamation"></i></span></div><strong class="metric-value">{{ number_format($overview['pending_claims'] + $overview['pending_payments']) }}<span class="metric-note">{{ $overview['pending_claims'] }} claims · {{ $overview['pending_payments'] }} payments</span></strong></article>
+                    <article class="metric"><div class="metric-top"><span>Verified claims</span><span class="metric-icon" style="background:var(--blue-soft);color:var(--blue)"><i class="fa-solid fa-circle-check"></i></span></div><strong class="metric-value">{{ number_format($metrics['verified']) }}<span class="metric-note">of {{ number_format($metrics['claims']) }} total claims</span></strong></article>
+                </section>
+                <section class="overview-grid">
+                    <article class="panel overview-summary"><div class="panel-head"><div class="panel-title"><h2>Claims at a glance</h2><p>Current workflow status</p></div><a class="row-link" href="{{ route('admin.claims') }}" data-turbo-frame="admin-content">View claims <i class="fa-solid fa-arrow-right"></i></a></div><div class="overview-status-list"><a href="{{ route('admin.claims') }}" data-turbo-frame="admin-content"><span><i class="fa-regular fa-clock"></i> Pending</span><strong>{{ number_format($overview['pending_claims']) }}</strong></a><a href="{{ route('admin.claims') }}?status=verified" data-turbo-frame="admin-content"><span><i class="fa-solid fa-circle-check"></i> Verified</span><strong>{{ number_format($metrics['verified']) }}</strong></a><a href="{{ route('admin.claims') }}?status=resolved" data-turbo-frame="admin-content"><span><i class="fa-solid fa-check-double"></i> Resolved</span><strong>{{ number_format($overview['resolved_claims']) }}</strong></a></div><div class="overview-progress"><span style="width:{{ $metrics['claims'] ? min(100, round($metrics['verified'] / $metrics['claims'] * 100)) : 0 }}%"></span></div></article>
+                    <article class="panel overview-summary"><div class="panel-head"><div class="panel-title"><h2>Today</h2><p>{{ now()->format('l, M j') }}</p></div><span class="metric-icon"><i class="fa-regular fa-calendar"></i></span></div><div class="today-stats"><div><strong>{{ number_format($overview['today_transactions']) }}</strong><span>transactions</span></div><div><strong>{{ number_format($overview['today_volume'] / 100, 2) }} {{ $paymentSettings['currency'] }}</strong><span>successful charge volume</span></div></div><a class="overview-link" href="{{ route('admin.transactions') }}" data-turbo-frame="admin-content">Open transaction ledger <i class="fa-solid fa-arrow-right"></i></a></article>
+                </section>
+                <section class="panel overview-activity"><div class="panel-head"><div class="panel-title"><h2>Recent payment activity</h2><p>Latest transactions across all claims</p></div><a class="row-link" href="{{ route('admin.transactions') }}" data-turbo-frame="admin-content">View transactions <i class="fa-solid fa-arrow-right"></i></a></div>
+                    @forelse($overview['recent_transactions'] as $transaction)<div class="activity-row"><span class="activity-icon {{ $transaction->status === 'success' ? 'success' : ($transaction->status === 'pending' ? 'waiting' : 'failed') }}"><i class="fa-solid {{ $transaction->type === 'refund' ? 'fa-arrow-rotate-left' : 'fa-credit-card' }}"></i></span><span class="activity-main"><strong>{{ ucfirst($transaction->type) }} · {{ $transaction->claim?->customer_name ?? 'Claim removed' }}</strong><small>{{ $transaction->claim?->claim_reference ?? '—' }} · {{ $transaction->created_at->format('M j, Y · g:i A') }}</small></span><strong class="activity-amount">{{ number_format($transaction->amount / 100, 2) }} {{ $transaction->currency }}</strong><span class="status {{ $transaction->status === 'success' ? 'verified' : ($transaction->status === 'pending' ? 'pending' : 'other') }}">{{ ucfirst($transaction->status) }}</span></div>@empty<div class="empty"><h3>No payment activity yet</h3><p>Transactions will appear here as customers complete payments.</p></div>@endforelse
                 </section>
                 @endif
 
-                @if(in_array($section, ['overview', 'claims'], true))
+                @if($section === 'claims')
                 <section class="panel" id="claims">
-                    <div class="panel-head"><div class="panel-title"><h2>{{ $section === 'overview' ? 'Recent claims' : 'Claims register' }}</h2><p>{{ $section === 'overview' ? 'Latest customer claims and their verification status.' : 'Search by client name, email, or parcel reference.' }}</p></div><div class="tools"><label class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="claim-search" type="search" placeholder="Search clients…" aria-label="Search clients"></label><select class="filter" id="status-filter" aria-label="Filter by claim status"><option value="all">All claims</option><option value="verified">Verified</option><option value="pending">Pending</option><option value="resolved">Resolved</option></select></div></div>
+                    <div class="panel-head"><div class="panel-title"><h2>Claims register</h2><p>Search by client name, email, or parcel reference.</p></div><div class="tools"><label class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="claim-search" data-table-search type="search" placeholder="Search clients…" aria-label="Search clients"></label><select class="filter" id="status-filter" data-filter-key="status" aria-label="Filter by claim status"><option value="all">All claims</option><option value="verified">Verified</option><option value="pending">Pending</option><option value="resolved">Resolved</option></select></div></div>
                     @if($claims->isEmpty())
                         <div class="empty"><div class="empty-icon"><i class="fa-solid fa-box-open"></i></div><h3>No claims yet</h3><p>Create a claim record for a customer. Once they complete checkout, their saved card and claim activity will appear here.</p><a class="primary" href="{{ route('admin.claims.create') }}"><i class="fa-solid fa-plus"></i> Create first claim</a></div>
                     @else
@@ -299,6 +307,120 @@
             }));
         });
 
+        function initializeAdminTables(root = document) {
+            root.querySelectorAll('table.data-table').forEach(table => {
+                if (table.dataset.toolsInitialized || !table.tHead || !table.tBodies.length) return;
+                const headers = Array.from(table.tHead.rows[0].cells);
+                const dataRows = () => Array.from(table.tBodies[0].rows).filter(row => !row.classList.contains('billing-detail-row') && row.cells.length === headers.length);
+                if (!dataRows().length) return;
+
+                const panel = table.closest('.panel');
+                const panelHead = panel?.querySelector('.panel-head');
+                if (!panelHead) return;
+                let tools = panelHead.querySelector('.tools');
+                if (!tools) {
+                    tools = document.createElement('div');
+                    tools.className = 'tools table-tools';
+                    panelHead.append(tools);
+                }
+                let searchInput = tools.querySelector('[data-table-search]');
+                if (!searchInput) {
+                    const label = document.createElement('label');
+                    label.className = 'search';
+                    label.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+                    searchInput = document.createElement('input');
+                    searchInput.type = 'search';
+                    searchInput.placeholder = 'Search this table…';
+                    searchInput.setAttribute('aria-label', 'Search table rows');
+                    searchInput.dataset.tableSearch = '';
+                    label.append(searchInput);
+                    tools.prepend(label);
+                }
+
+                const existingFilters = Array.from(tools.querySelectorAll('select.filter'));
+                headers.forEach((header, columnIndex) => {
+                    const title = header.textContent.trim().toLowerCase();
+                    if (!['status', 'type', 'gateway', 'authorization', 'schedule'].includes(title)) return;
+                    let select = existingFilters.find(item => item.dataset.filterKey === title || Number(item.dataset.filterColumn) === columnIndex);
+                    if (!select) {
+                        const values = [...new Set(dataRows().map(row => (row.cells[columnIndex].innerText || row.cells[columnIndex].textContent).replace(/\s+/g, ' ').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+                        if (values.length < 2) return;
+                        select = document.createElement('select');
+                        select.className = 'filter';
+                        select.dataset.filterColumn = String(columnIndex);
+                        select.setAttribute('aria-label', `Filter by ${title}`);
+                        select.add(new Option(`All ${title}s`, 'all'));
+                        values.forEach(value => select.add(new Option(value, value.toLowerCase())));
+                        tools.insertBefore(select, tools.querySelector('[data-export-table]'));
+                    } else if (select.dataset.filterKey) {
+                        select.dataset.filterColumn = String(columnIndex);
+                    }
+                });
+
+                let count = tools.querySelector('[data-table-count]');
+                if (!count) {
+                    count = document.createElement('span');
+                    count.className = 'status other table-row-count';
+                    count.dataset.tableCount = '';
+                    tools.append(count);
+                }
+                let exportButton = tools.querySelector('[data-export-table]');
+                if (!exportButton) {
+                    exportButton = document.createElement('button');
+                    exportButton.type = 'button';
+                    exportButton.className = 'secondary';
+                    exportButton.dataset.exportTable = '';
+                    exportButton.innerHTML = '<i class="fa-solid fa-download"></i> Export CSV';
+                    tools.append(exportButton);
+                }
+
+                const filters = Array.from(tools.querySelectorAll('select.filter'));
+                const update = () => {
+                    let visible = 0;
+                    const term = searchInput.value.toLowerCase().trim();
+                    dataRows().forEach(row => {
+                        const searchMatch = !term || (row.innerText || row.textContent).toLowerCase().includes(term);
+                        const filterMatch = filters.every(select => {
+                            if (select.value === 'all') return true;
+                            const key = select.dataset.filterKey;
+                            const cellValue = key && row.dataset[key] ? row.dataset[key] : (row.cells[Number(select.dataset.filterColumn)]?.innerText || row.cells[Number(select.dataset.filterColumn)]?.textContent || '');
+                            return cellValue.replace(/\s+/g, ' ').trim().toLowerCase() === select.value;
+                        });
+                        row.hidden = !(searchMatch && filterMatch);
+                        if (!row.hidden) visible++;
+                    });
+                    count.textContent = `${visible} rows`;
+                    const noResults = document.getElementById('no-results');
+                    if (noResults && table.id === 'claim-list') noResults.hidden = visible !== 0;
+                };
+                searchInput.addEventListener('input', update);
+                filters.forEach(select => select.addEventListener('change', update));
+                exportButton.addEventListener('click', () => {
+                    const excluded = new Set(headers.map((header, index) => ({header, index})).filter(({header}) => /^(actions|select)$/i.test(header.textContent.trim()) || header.classList.contains('select-column') || header.classList.contains('actions-column')).map(item => item.index));
+                    const csvRows = [headers.map((header, index) => excluded.has(index) ? null : header.textContent.trim()).filter(value => value !== null)];
+                    dataRows().filter(row => !row.hidden).forEach(row => {
+                        csvRows.push(Array.from(row.cells).filter((cell, index) => !excluded.has(index)).map(cell => {
+                            let value = (cell.innerText || cell.textContent).replace(/\s+/g, ' ').trim();
+                            if (/^[=+\-@\t\r]/.test(value)) value = `'${value}`;
+                            return value;
+                        }));
+                    });
+                    const csv = csvRows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+                    const blob = new Blob(['\ufeff', csv], {type: 'text/csv;charset=utf-8'});
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    const title = (panel.querySelector('.panel-title h2')?.textContent || 'table').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                    link.href = url;
+                    link.download = `${title || 'table'}-${new Date().toISOString().slice(0, 10)}.csv`;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                });
+                table.dataset.toolsInitialized = 'true';
+                update();
+            });
+        }
+        initializeAdminTables();
+
         // Redirect links created by the previous anchor-based sidebar to the dedicated claims page.
         if (window.location.hash === '#claims') {
             window.location.replace(@json(route('admin.claims')));
@@ -318,6 +440,7 @@
                     if (!cell.hasAttribute('colspan')) cell.dataset.label = labels[index] || '';
                 }));
             });
+            initializeAdminTables(frame);
             sidebar.classList.remove('open'); backdrop.classList.remove('show');
         });
         document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('dialog[data-auto-open]').forEach(dialog => { if (!dialog.open) dialog.showModal(); }));
