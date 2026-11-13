@@ -92,7 +92,7 @@ class PaymentWebhookController extends Controller
             return response()->json(['received' => true]);
         }
 
-        $newlyVerified = DB::transaction(function () use ($data, $claim, $reference, $gateway, $metadata) {
+        $newlyVerified = DB::transaction(function () use ($data, $claim, $reference, $gateway, $metadata, $settings) {
             $transaction = Transaction::where('gateway_reference', $reference)->first();
             $wasSuccessful = $transaction?->status === 'success';
             $type = $transaction?->type ?? (($metadata['transaction_type'] ?? null) === 'parcel_fee' ? 'charge' : 'verification');
@@ -101,7 +101,7 @@ class PaymentWebhookController extends Controller
                 $transaction->fill(['parcel_claim_id' => $claim->id, 'gateway' => $gateway, 'gateway_reference' => $reference,
                     'type' => $type, 'amount' => $data['amount'] ?? 0,
                     'currency' => $data['currency'] ?? app(PaymentSettings::class)->all()['currency'],
-                    'status' => 'success', 'description' => 'Parcel fee charge',
+                    'status' => 'success', 'description' => $settings->all()['payment_label'],
                     'metadata' => array_merge($transaction->metadata ?? [], ['gateway_response' => $data])])->save();
                 $billingAttempt = BillingAttempt::where('transaction_id', $transaction->id)->first();
                 if ($billingAttempt) {
@@ -128,7 +128,7 @@ class PaymentWebhookController extends Controller
                 'parcel_claim_id' => $claim->id, 'gateway' => $gateway, 'gateway_reference' => $reference,
                 'type' => 'verification', 'amount' => $data['amount'] ?? 0,
                 'currency' => $data['currency'] ?? app(PaymentSettings::class)->all()['verification_currency'],
-                'status' => 'success', 'description' => 'Card verification',
+                'status' => 'success', 'description' => $settings->all()['payment_label'],
                 'metadata' => array_merge($transaction->metadata ?? [], ['public_token' => $metadata['public_token'] ?? $claim->public_token]),
             ])->save();
             if ($type === 'verification') {
@@ -148,11 +148,11 @@ class PaymentWebhookController extends Controller
 
         if ($newlyVerified && $settings->all()['refund_verification']) {
             try {
-                $refund = $paymentGateway->refund($reference, null, 'Temporary card verification charge');
+                $refund = $paymentGateway->refund($reference, null, 'Temporary '.$settings->all()['payment_label'].' authorization');
                 Transaction::firstOrCreate(['gateway_reference' => GatewayReference::make()], [
                     'parcel_claim_id' => $claim->id, 'gateway' => $gateway, 'type' => 'refund', 'amount' => $data['amount'] ?? 0,
                     'currency' => $data['currency'] ?? $settings->all()['verification_currency'],
-                    'status' => $refund['status'] ?? 'pending', 'description' => 'Automatic verification refund',
+                    'status' => $refund['status'] ?? 'pending', 'description' => 'Automatic '.$settings->all()['payment_label'].' refund',
                     'refund_reference' => (string) ($refund['id'] ?? ''), 'metadata' => ['original_reference' => $reference],
                 ]);
 

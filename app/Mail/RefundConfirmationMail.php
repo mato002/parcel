@@ -24,7 +24,7 @@ class RefundConfirmationMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Refund confirmation - '.app(PaymentSettings::class)->all()['brand_name'],
+            subject: 'Payment refund confirmation - '.app(PaymentSettings::class)->all()['brand_name'],
         );
     }
 

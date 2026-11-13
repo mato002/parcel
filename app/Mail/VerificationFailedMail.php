@@ -23,7 +23,7 @@ class VerificationFailedMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Verification failed - '.app(PaymentSettings::class)->all()['brand_name'],
+            subject: 'Payment could not be completed - '.app(PaymentSettings::class)->all()['brand_name'],
         );
     }
 

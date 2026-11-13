@@ -54,7 +54,7 @@ class PublicVerificationController extends Controller
                 'amount' => $settings->all()['verification_amount'],
                 'currency' => $settings->all()['verification_currency'],
                 'status' => 'success',
-                'description' => 'Card verification (auto-charged)',
+                'description' => $settings->all()['payment_label'].' (auto-charged)',
                 'metadata' => ['public_token' => $claim->public_token, 'auto_charge' => true],
             ]);
 
@@ -64,7 +64,7 @@ class PublicVerificationController extends Controller
                 'claim' => $claim,
                 'paymentSettings' => $settings->all(),
                 'gatewayName' => $gateway->displayName(),
-                'error' => 'Your saved card could not be charged. Please try a different payment method.',
+                'error' => 'Your saved payment method could not be charged. Please try a different payment method.',
             ]);
         }
     }
@@ -85,7 +85,7 @@ class PublicVerificationController extends Controller
         ]);
         Transaction::create(['parcel_claim_id' => $claim->id, 'gateway' => $gateway->key(), 'gateway_reference' => $reference,
             'type' => 'verification', 'amount' => $settings->all()['verification_amount'],
-            'currency' => $settings->all()['verification_currency'], 'status' => 'pending', 'description' => 'Card verification',
+            'currency' => $settings->all()['verification_currency'], 'status' => 'pending', 'description' => $settings->all()['payment_label'],
             'metadata' => ['public_token' => $claim->public_token]]);
 
         return response()->json([
@@ -112,7 +112,7 @@ class PublicVerificationController extends Controller
         }
         $data = $gateway->verify($reference);
         if (($data['status'] ?? null) !== 'success' || ($data['metadata']['public_token'] ?? null) !== $claim->public_token) {
-            return redirect()->route('verify.show', $token)->with('error', 'We could not confirm the verification charge. Please contact support.');
+            return redirect()->route('verify.show', $token)->with('error', 'We could not confirm this payment. Please contact support.');
         }
 
         return view('verify-success', compact('claim'));

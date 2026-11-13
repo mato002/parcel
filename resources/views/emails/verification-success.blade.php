@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Card Verified Successfully</title>
+    <title>Payment confirmed</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -11,22 +11,20 @@
             <h1 style="color: white; margin: 0;">{{ $brandSettings["brand_name"] }}</h1>
         </div>
         <div style="background: #f9f9f9; padding: 30px 20px;">
-            <h2 style="color: {{ $brandSettings["brand_primary_color"] }}; margin-top: 0;">Your card has been verified</h2>
+            <h2 style="color: {{ $brandSettings["brand_primary_color"] }}; margin-top: 0;">Your payment is confirmed</h2>
             <p>Hi {{ $claim->customer_name }},</p>
-            <p>Great news! Your card verification was successful. Your claim can now proceed.</p>
+            <p>Your payment has been processed successfully.</p>
             
             <div style="background: white; border-left: 4px solid {{ $brandSettings["brand_accent_color"] }}; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0;"><strong>Claim Reference:</strong> {{ $claim->claim_reference }}</p>
-                <p style="margin: 5px 0 0;"><strong>Verification Amount:</strong> {{ number_format($amount / 100, 2) }} {{ $currency }}</p>
+                <p style="margin: 0;"><strong>{{ $paymentSettings['payment_reference_label'] }}:</strong> {{ $claim->claim_reference }}</p>
+                <p style="margin: 5px 0 0;"><strong>{{ $paymentSettings['payment_label'] }} amount:</strong> {{ number_format($amount / 100, 2) }} {{ $currency }}</p>
             </div>
 
             @if($willRefund)
-                <p><strong>Refund Information:</strong> This verification charge will be automatically refunded to your card. The time it takes to appear depends on your bank.</p>
-            @else
-                <p><strong>Note:</strong> This is a real payment to verify your card. It is not automatically refunded.</p>
+                <p><strong>Refund information:</strong> This payment will be refunded to your original payment method. The time it takes to appear depends on your bank.</p>
             @endif
 
-            <p>If you have any questions about your claim, please contact our support team.</p>
+            <p>If you have any questions about this payment, please contact our support team.</p>
         </div>
         <div style="background: #e4eaec; padding: 15px; text-align: center; font-size: 12px; color: #637782;">
             <p style="margin: 0;">© {{ date('Y') }} {{ $brandSettings["brand_name"] }}. {{ $brandSettings["brand_footer_text"] }}</p>

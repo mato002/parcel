@@ -14,13 +14,17 @@ class PaymentSettings
         'verification_amount' => '100',
         'refund_verification' => '0',
         'support_email' => '',
-        'brand_name' => 'Parcel Claims',
-        'brand_tagline' => 'Customer support',
+        'brand_name' => 'Global Payments',
+        'brand_tagline' => 'Secure payments',
         'brand_logo_url' => '',
         'brand_primary_color' => '#124a68',
         'brand_accent_color' => '#d87843',
         'brand_footer_text' => 'All rights reserved.',
         'support_phone' => '',
+        'checkout_title' => 'Complete your payment',
+        'checkout_message' => 'Enter your details to continue securely.',
+        'payment_label' => 'Payment',
+        'payment_reference_label' => 'Payment reference',
     ];
 
     public function all(): array
@@ -42,6 +46,10 @@ class PaymentSettings
             'brand_accent_color' => $values['brand_accent_color'] ?? self::DEFAULTS['brand_accent_color'],
             'brand_footer_text' => $values['brand_footer_text'] ?? self::DEFAULTS['brand_footer_text'],
             'support_phone' => $values['support_phone'] ?? '',
+            'checkout_title' => $values['checkout_title'] ?? self::DEFAULTS['checkout_title'],
+            'checkout_message' => $values['checkout_message'] ?? self::DEFAULTS['checkout_message'],
+            'payment_label' => $values['payment_label'] ?? self::DEFAULTS['payment_label'],
+            'payment_reference_label' => $values['payment_reference_label'] ?? self::DEFAULTS['payment_reference_label'],
         ];
     }
 

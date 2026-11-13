@@ -25,7 +25,7 @@ class VerificationSuccessMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your card has been verified - '.app(PaymentSettings::class)->all()['brand_name'],
+            subject: 'Payment confirmed - '.app(PaymentSettings::class)->all()['brand_name'],
         );
     }
 

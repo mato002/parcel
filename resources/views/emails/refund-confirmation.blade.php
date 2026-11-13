@@ -13,10 +13,10 @@
         <div style="background: #f9f9f9; padding: 30px 20px;">
             <h2 style="color: {{ $brandSettings["brand_accent_color"] }}; margin-top: 0;">Refund confirmation</h2>
             <p>Hi {{ $claim->customer_name }},</p>
-            <p>A refund has been processed for your claim.</p>
+            <p>A refund has been processed for your payment.</p>
             
             <div style="background: white; border-left: 4px solid {{ $brandSettings["brand_accent_color"] }}; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0;"><strong>Claim Reference:</strong> {{ $claim->claim_reference }}</p>
+                <p style="margin: 0;"><strong>{{ $paymentSettings['payment_reference_label'] }}:</strong> {{ $claim->claim_reference }}</p>
                 <p style="margin: 5px 0 0;"><strong>Refund Amount:</strong> {{ number_format($amount / 100, 2) }} {{ $currency }}</p>
             </div>
 

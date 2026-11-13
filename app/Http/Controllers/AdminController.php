@@ -267,6 +267,10 @@ class AdminController extends Controller
             'brand_primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'brand_accent_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'brand_footer_text' => ['nullable', 'string', 'max:255'],
+            'checkout_title' => ['required', 'string', 'max:80'],
+            'checkout_message' => ['required', 'string', 'max:200'],
+            'payment_label' => ['required', 'string', 'max:80'],
+            'payment_reference_label' => ['required', 'string', 'max:60'],
         ]);
         $data['verification_amount'] = (string) round((float) $data['verification_amount'] * 100);
         $data['refund_verification'] = $request->boolean('refund_verification') ? '1' : '0';
@@ -358,7 +362,7 @@ class AdminController extends Controller
         }
         try {
             $gateway = $gateways->for($transaction->gateway);
-            $result = $gateway->refund($transaction->gateway_reference, $amount, 'Parcel claim refund');
+            $result = $gateway->refund($transaction->gateway_reference, $amount, 'Payment refund');
             Transaction::create(['parcel_claim_id' => $transaction->parcel_claim_id, 'saved_card_id' => $transaction->saved_card_id,
                 'gateway' => $transaction->gateway, 'gateway_reference' => GatewayReference::make(), 'type' => 'refund', 'amount' => $amount ?? $transaction->amount,
                 'currency' => $transaction->currency, 'status' => $result['status'] ?? 'pending', 'description' => 'Refund for '.$transaction->gateway_reference,
