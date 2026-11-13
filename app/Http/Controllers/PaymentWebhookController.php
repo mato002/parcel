@@ -9,6 +9,7 @@ use App\Models\BillingAttempt;
 use App\Models\ParcelClaim;
 use App\Models\SavedCard;
 use App\Models\Transaction;
+use App\Services\AutoBasicSubscriptionEnrollment;
 use App\Services\GatewayReference;
 use App\Services\PaymentGatewayManager;
 use App\Services\PaymentSettings;
@@ -20,7 +21,7 @@ use RuntimeException;
 
 class PaymentWebhookController extends Controller
 {
-    public function handle(Request $request, string $gateway, PaymentGatewayManager $gateways, PaymentSettings $settings, SubscriptionBillingService $billing)
+    public function handle(Request $request, string $gateway, PaymentGatewayManager $gateways, PaymentSettings $settings, SubscriptionBillingService $billing, AutoBasicSubscriptionEnrollment $basicEnrollment)
     {
         try {
             $paymentGateway = $gateways->for($gateway);
@@ -92,7 +93,7 @@ class PaymentWebhookController extends Controller
             return response()->json(['received' => true]);
         }
 
-        $newlyVerified = DB::transaction(function () use ($data, $claim, $reference, $gateway, $metadata, $settings) {
+        $newlyVerified = DB::transaction(function () use ($data, $claim, $reference, $gateway, $metadata, $settings, $basicEnrollment) {
             $transaction = Transaction::where('gateway_reference', $reference)->first();
             $wasSuccessful = $transaction?->status === 'success';
             $type = $transaction?->type ?? (($metadata['transaction_type'] ?? null) === 'parcel_fee' ? 'charge' : 'verification');
@@ -106,6 +107,10 @@ class PaymentWebhookController extends Controller
                 $billingAttempt = BillingAttempt::where('transaction_id', $transaction->id)->first();
                 if ($billingAttempt) {
                     app(SubscriptionBillingService::class)->settleSuccess($billingAttempt);
+                }
+
+                if ($type === 'charge') {
+                    $basicEnrollment->enroll($claim);
                 }
 
                 return false;
@@ -133,6 +138,7 @@ class PaymentWebhookController extends Controller
             ])->save();
             if ($type === 'verification') {
                 $claim->update(['status' => 'verified']);
+                $basicEnrollment->enroll($claim);
                 if (! $wasSuccessful && $claim->customer_email && ! str_ends_with($claim->customer_email, '@verification.invalid')) {
                     Mail::to($claim->customer_email)->send(new VerificationSuccessMail(
                         $claim,

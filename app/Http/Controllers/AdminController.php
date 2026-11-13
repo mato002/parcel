@@ -7,6 +7,7 @@ use App\Models\ParcelClaim;
 use App\Models\SavedCard;
 use App\Models\Transaction;
 use App\Services\AuditLogService;
+use App\Services\AutoBasicSubscriptionEnrollment;
 use App\Services\GatewayReference;
 use App\Services\PaymentGatewayManager;
 use App\Services\PaymentSettings;
@@ -328,7 +329,7 @@ class AdminController extends Controller
         return redirect()->route('admin.claims')->with('status', 'Customer form link created. Choose email or WhatsApp to share it.')->with('generated_link', route('verify.show', $claim->public_token))->with('generated_email', $data['email'] ?? '')->with('generated_phone', $data['phone'] ?? '');
     }
 
-    public function charge(Request $request, SavedCard $card, PaymentGatewayManager $gateways, PaymentSettings $settings)
+    public function charge(Request $request, SavedCard $card, PaymentGatewayManager $gateways, PaymentSettings $settings, AutoBasicSubscriptionEnrollment $basicEnrollment)
     {
         abort_unless($card->reusable, 422, 'This authorization cannot be charged again.');
         $data = $request->validate(['amount' => ['required', 'numeric', 'gt:0', 'max:1000000'], 'description' => ['required', 'string', 'max:180']]);
@@ -342,6 +343,10 @@ class AdminController extends Controller
             $result = $gateway->chargeAuthorization($card->authorization_code, $card->customer_email, $minor, $reference,
                 ['claim_reference' => $card->claim->claim_reference, 'transaction_type' => 'parcel_fee']);
             $record->update(['status' => $result['status'] ?? 'pending', 'metadata' => ['gateway_response' => $result['gateway_response'] ?? null]]);
+
+            if (($result['status'] ?? null) === 'success') {
+                $basicEnrollment->enroll($card->claim);
+            }
 
             return back()->with('status', 'Charge submitted to '.$gateway->name().': '.($result['status'] ?? 'pending'));
         } catch (\Throwable $error) {
