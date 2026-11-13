@@ -41,6 +41,7 @@ Route::middleware(['auth', 'can:manage-payments'])->prefix('admin')->name('admin
     Route::delete('/cards/{card}', [AdminController::class, 'destroyCard'])->name('cards.destroy');
     Route::get('/transactions', [AdminController::class, 'transactions'])->name('transactions');
     Route::get('/transactions/{transaction}', [AdminController::class, 'showTransaction'])->name('transactions.show');
+    Route::post('/transactions/{transaction}/retry', [AdminController::class, 'retryVerification'])->name('transactions.retry');
     Route::get('/profile', [AdminController::class, 'profile'])->name('profile');
     Route::put('/profile', [AdminController::class, 'updateProfile'])->name('profile.update');
     Route::get('/settings', [AdminController::class, 'settings'])->name('settings');

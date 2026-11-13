@@ -215,7 +215,8 @@ class AdminController extends Controller
 
     public function showTransaction(Transaction $transaction)
     {
-        $transaction->load(['claim', 'card']);
+        $transaction->load(['claim.cards', 'card']);
+        $transaction->setAttribute('retry_card', $this->retryCardFor($transaction));
 
         return view('admin.index', [
             'section' => 'transaction_detail', 'transaction' => $transaction,
@@ -303,7 +304,8 @@ class AdminController extends Controller
         }
 
         if ($section === 'transactions') {
-            $transactions = Transaction::with(['claim', 'card'])->latest()->get();
+            $transactions = Transaction::with(['claim.cards', 'card'])->latest()->get();
+            $transactions->each(fn (Transaction $transaction) => $transaction->setAttribute('retry_card', $this->retryCardFor($transaction)));
         }
 
         $metrics = [
@@ -362,6 +364,109 @@ class AdminController extends Controller
 
             return back()->withErrors(['payment' => $gateway->name().' could not process the charge. Check the gateway credentials and try again.']);
         }
+    }
+
+    public function retryVerification(Request $request, Transaction $transaction, PaymentGatewayManager $gateways, PaymentSettings $settings)
+    {
+        abort_unless($transaction->type === 'verification' && in_array($transaction->status, ['pending', 'failed'], true), 422, 'Only pending or failed verification payments can be retried.');
+        $claim = $transaction->claim;
+        abort_unless($claim, 422, 'The customer record for this payment is no longer available.');
+        $card = $this->retryCardFor($transaction);
+        abort_unless($card, 422, 'No reusable saved card is available for this customer.');
+
+        $minimum = $settings->minimumAmountMinor($transaction->currency) / 100;
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:'.$minimum, 'max:1000000'],
+        ], ['amount.min' => 'The minimum payment for '.$transaction->currency.' is '.number_format($minimum, 2).'.']);
+
+        $gateway = $gateways->for($transaction->gateway);
+        try {
+            $original = $gateway->verify($transaction->gateway_reference);
+        } catch (\Throwable $error) {
+            report($error);
+
+            return back()->withErrors(['retry' => 'Could not confirm the previous attempt with the payment provider. Try again when the provider is reachable.']);
+        }
+
+        $originalStatus = strtolower((string) ($original['status'] ?? 'pending'));
+        if ($originalStatus === 'success') {
+            return back()->withErrors(['retry' => 'The previous payment is confirmed successful. The card was not charged again.']);
+        }
+        if (! in_array($originalStatus, ['failed', 'abandoned'], true)) {
+            return back()->withErrors(['retry' => 'The previous payment is still '.$originalStatus.'. Wait for Paystack to confirm it failed before retrying.']);
+        }
+
+        $transaction->update([
+            'status' => 'failed',
+            'metadata' => array_merge($transaction->metadata ?? [], ['gateway_response' => $original]),
+        ]);
+
+        $latestRetry = Transaction::where('metadata->retry_of_reference', $transaction->gateway_reference)
+            ->latest()
+            ->first();
+        if ($latestRetry && in_array($latestRetry->status, ['pending', 'success'], true)) {
+            return back()->withErrors(['retry' => 'A retry is already '.$latestRetry->status.' ('.$latestRetry->gateway_reference.'). Wait for its final status before trying again.']);
+        }
+
+        $amount = (int) round((float) $data['amount'] * 100);
+        $reference = GatewayReference::make();
+        $retry = Transaction::create([
+            'parcel_claim_id' => $claim->id,
+            'saved_card_id' => $card->id,
+            'gateway' => $transaction->gateway,
+            'gateway_reference' => $reference,
+            'type' => 'verification',
+            'amount' => $amount,
+            'currency' => $transaction->currency,
+            'status' => 'pending',
+            'description' => 'Retry of '.$transaction->gateway_reference,
+            'metadata' => [
+                'public_token' => $claim->public_token,
+                'claim_reference' => $claim->claim_reference,
+                'retry_of_reference' => $transaction->gateway_reference,
+                'admin_initiated' => true,
+            ],
+        ]);
+
+        try {
+            $result = $gateway->chargeAuthorization(
+                $card->authorization_code,
+                $card->customer_email ?: $claim->customer_email,
+                $amount,
+                $reference,
+                ['public_token' => $claim->public_token, 'claim_reference' => $claim->claim_reference, 'admin_retry' => true],
+                $transaction->currency
+            );
+            if (in_array(strtolower((string) ($result['status'] ?? '')), ['failed', 'abandoned'], true)) {
+                $retry->update(['status' => 'failed']);
+            }
+            $retry->refresh();
+            $retry->update(['metadata' => array_merge($retry->metadata ?? [], ['gateway_response' => $result])]);
+
+            return redirect()->route('admin.transactions.show', $transaction)->with('status', 'Retry submitted for '.$retry->gateway_reference.'. Provider status: '.($result['status'] ?? 'pending').'.');
+        } catch (\Throwable $error) {
+            report($error);
+            $retry->refresh();
+            if ($retry->status === 'pending') {
+                $retry->update(['status' => 'failed', 'metadata' => array_merge($retry->metadata ?? [], ['gateway_error' => $error->getMessage()])]);
+            }
+
+            return back()->withErrors(['retry' => 'Paystack could not charge the saved card: '.$error->getMessage()]);
+        }
+    }
+
+    private function retryCardFor(Transaction $transaction): ?SavedCard
+    {
+        if ($transaction->card?->reusable && $transaction->card->gateway === $transaction->gateway) {
+            return $transaction->card;
+        }
+
+        return $transaction->claim?->cards->first(fn (SavedCard $card) => $card->reusable && $card->gateway === $transaction->gateway
+        ) ?? SavedCard::where('parcel_claim_id', $transaction->parcel_claim_id)
+            ->where('gateway', $transaction->gateway)
+            ->where('reusable', true)
+            ->latest()
+            ->first();
     }
 
     public function refund(Request $request, Transaction $transaction, PaymentGatewayManager $gateways)
