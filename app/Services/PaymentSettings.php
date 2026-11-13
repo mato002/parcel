@@ -11,7 +11,7 @@ class PaymentSettings
         'gateway' => 'paystack',
         'currency' => 'KES',
         'verification_currency' => 'USD',
-        'verification_amount' => '100',
+        'verification_amount' => '200',
         'refund_verification' => '0',
         'support_email' => '',
         'brand_name' => 'Global Payments',
@@ -51,6 +51,11 @@ class PaymentSettings
             'payment_label' => $values['payment_label'] ?? self::DEFAULTS['payment_label'],
             'payment_reference_label' => $values['payment_reference_label'] ?? self::DEFAULTS['payment_reference_label'],
         ];
+    }
+
+    public function minimumAmountMinor(string $currency): int
+    {
+        return (int) config('payments.minimum_amount_minor.'.strtoupper($currency), 1);
     }
 
     public function save(array $settings): void

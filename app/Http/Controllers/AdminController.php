@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AdminController extends Controller
 {
@@ -273,6 +274,12 @@ class AdminController extends Controller
             'payment_label' => ['required', 'string', 'max:80'],
             'payment_reference_label' => ['required', 'string', 'max:60'],
         ]);
+        $minimumAmount = $settings->minimumAmountMinor($data['verification_currency']) / 100;
+        if ((float) $data['verification_amount'] < $minimumAmount) {
+            throw ValidationException::withMessages([
+                'verification_amount' => 'The minimum payment for '.$data['verification_currency'].' is '.number_format($minimumAmount, 2).'.',
+            ]);
+        }
         $data['verification_amount'] = (string) round((float) $data['verification_amount'] * 100);
         $data['refund_verification'] = $request->boolean('refund_verification') ? '1' : '0';
         $settings->save($data);

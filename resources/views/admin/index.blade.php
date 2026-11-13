@@ -230,7 +230,7 @@
                                 <div class="form-field"><label for="settings-gateway">Payment gateway</label><select id="settings-gateway" name="gateway">@foreach($availableGateways as $key => $name)<option value="{{ $key }}" @selected(old('gateway', $paymentSettings['gateway']) === $key)>{{ $name }}</option>@endforeach</select></div>
                                 <div class="form-field"><label for="settings-currency">Default charge currency</label><select id="settings-currency" name="currency">@foreach(['KES', 'NGN', 'GHS', 'USD'] as $currency)<option value="{{ $currency }}" @selected(old('currency', $paymentSettings['currency']) === $currency)>{{ $currency }}</option>@endforeach</select></div>
                                 <div class="form-field"><label for="settings-verification-currency">Checkout payment currency</label><select id="settings-verification-currency" name="verification_currency">@foreach(['KES', 'NGN', 'GHS', 'USD'] as $currency)<option value="{{ $currency }}" @selected(old('verification_currency', $paymentSettings['verification_currency']) === $currency)>{{ $currency }}</option>@endforeach</select></div>
-                                <div class="form-field"><label for="settings-amount">Payment amount</label><input id="settings-amount" name="verification_amount" type="number" min="0.01" max="1000" step="0.01" value="{{ number_format($paymentSettings['verification_amount'] / 100, 2, '.', '') }}" required></div>
+                                <div class="form-field"><label for="settings-amount">Payment amount</label><input id="settings-amount" name="verification_amount" type="number" min="0.01" max="1000" step="0.01" value="{{ number_format(old('verification_amount', $paymentSettings['verification_amount'] / 100), 2, '.', '') }}" data-minimums="{{ json_encode(collect(config('payments.minimum_amount_minor'))->map(fn ($amount) => $amount / 100)) }}" required><small class="muted" id="settings-amount-minimum"></small></div>
                                 <div class="form-field"><label for="checkout-title">Checkout title</label><input id="checkout-title" name="checkout_title" value="{{ old('checkout_title', $paymentSettings['checkout_title']) }}" maxlength="80" required></div>
                                 <div class="form-field"><label for="payment-label">Payment description</label><input id="payment-label" name="payment_label" value="{{ old('payment_label', $paymentSettings['payment_label']) }}" maxlength="80" required></div>
                                 <div class="form-field"><label for="checkout-message">Checkout instructions</label><input id="checkout-message" name="checkout_message" value="{{ old('checkout_message', $paymentSettings['checkout_message']) }}" maxlength="200" required></div>
@@ -379,6 +379,18 @@
             } catch { button.innerHTML='<i class="fa-solid fa-triangle-exclamation"></i> Select and copy'; }
         };
         document.addEventListener('click', event => { if (event.target.closest('#copy-link')) copyText(document.getElementById('generated-link').value, event.target.closest('#copy-link')); });
+        const verificationCurrency = document.getElementById('settings-verification-currency');
+        const verificationAmount = document.getElementById('settings-amount');
+        if (verificationCurrency && verificationAmount) {
+            const minimums = JSON.parse(verificationAmount.dataset.minimums);
+            const updateAmountMinimum = () => {
+                const minimum = minimums[verificationCurrency.value] ?? 0.01;
+                verificationAmount.min = minimum;
+                document.getElementById('settings-amount-minimum').textContent = `Minimum for ${verificationCurrency.value}: ${Number(minimum).toFixed(2)} ${verificationCurrency.value}.`;
+            };
+            verificationCurrency.addEventListener('change', updateAmountMinimum);
+            updateAmountMinimum();
+        }
     </script>
 </body>
 </html>

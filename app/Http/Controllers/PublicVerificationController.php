@@ -32,6 +32,16 @@ class PublicVerificationController extends Controller
 
     private function chargeSavedCard(ParcelClaim $claim, SavedCard $savedCard, PaymentSettings $settings)
     {
+        $configurationError = $this->minimumAmountError($settings);
+        if ($configurationError) {
+            return view('verify', [
+                'claim' => $claim,
+                'paymentSettings' => $settings->all(),
+                'gatewayName' => app(PaymentGatewayManager::class)->name($savedCard->gateway),
+                'error' => $configurationError,
+            ]);
+        }
+
         $gateway = app(PaymentGatewayManager::class)->for($savedCard->gateway);
         $reference = GatewayReference::make();
 
@@ -71,6 +81,10 @@ class PublicVerificationController extends Controller
 
     public function initialize(Request $request, ParcelClaim $claim, PaymentGatewayManager $gateways, PaymentSettings $settings)
     {
+        if ($configurationError = $this->minimumAmountError($settings)) {
+            return response()->json(['message' => $configurationError], 422);
+        }
+
         $data = $request->validate(['name' => ['required', 'string', 'max:120'], 'email' => ['required', 'email', 'max:255']]);
         $claim->update(['customer_name' => $data['name'], 'customer_email' => $data['email']]);
         $gateway = $gateways->current();
@@ -127,11 +141,28 @@ class PublicVerificationController extends Controller
             ->firstOrFail();
         $gateway = $gateways->for($transaction->gateway);
         $data = $gateway->verify($reference);
+        $providerStatus = strtolower((string) ($data['status'] ?? 'pending'));
+        if (in_array($providerStatus, ['failed', 'abandoned'], true) && $transaction->status === 'pending') {
+            $transaction->update(['status' => 'failed']);
+        }
         $valid = ($data['status'] ?? null) === 'success'
             && ($data['metadata']['public_token'] ?? null) === $claim->public_token
             && (int) ($data['amount'] ?? 0) === $transaction->amount
             && ($data['currency'] ?? null) === $transaction->currency;
 
         return response()->json(['status' => $valid ? 'success' : ($data['status'] ?? 'pending')]);
+    }
+
+    private function minimumAmountError(PaymentSettings $settings): ?string
+    {
+        $values = $settings->all();
+        $minimum = $settings->minimumAmountMinor($values['verification_currency']);
+
+        if ($values['verification_amount'] >= $minimum) {
+            return null;
+        }
+
+        return 'The configured payment amount is below the '.$values['verification_currency'].' minimum of '
+            .number_format($minimum / 100, 2).'. Please contact support.';
     }
 }
