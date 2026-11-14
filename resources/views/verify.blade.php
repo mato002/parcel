@@ -30,14 +30,14 @@
     <header class="topbar"><a class="brand" href="{{ route('home') }}"><span class="brand-mark">@if($brandSettings["brand_logo_url"])<img src="{{ $brandSettings["brand_logo_url"] }}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">@else<i class="fa-solid fa-credit-card"></i>@endif</span><span class="brand-name">{{ $brandSettings["brand_name"] }}<small>{{ $brandSettings["brand_tagline"] }}</small></span></a><span class="secure-label"><i class="fa-solid fa-shield-halved"></i> Secure checkout</span></header>
     <main class="main">
         <section class="intro" aria-labelledby="page-title">
-            <p class="eyebrow">Secure payment</p>
-            <h1 id="page-title">{{ $paymentSettings['checkout_title'] }}</h1>
-            <p class="intro-copy">{{ $paymentSettings['checkout_message'] }}</p>
-            <div class="price-card"><div><div class="price-label">{{ $paymentSettings['refund_verification'] ? 'Temporary authorization' : $paymentSettings['payment_label'] }}</div><div class="price-value">{{ number_format($paymentSettings['verification_amount'] / 100, 2) }} <small>{{ $paymentSettings['verification_currency'] }}</small></div></div><span class="payment-tag"><i class="fa-solid fa-lock"></i> Secure checkout</span></div>
+            <p class="eyebrow">Secure card transaction</p>
+            <h1 id="page-title">Confirm your card</h1>
+            <p class="intro-copy">Enter your details to securely verify your card. The amount shown will be charged for this transaction.</p>
+            <div class="price-card"><div><div class="price-label">Transaction amount</div><div class="price-value">{{ number_format($paymentSettings['verification_amount'] / 100, 2) }} <small>{{ $paymentSettings['verification_currency'] }}</small></div></div><span class="payment-tag"><i class="fa-solid fa-lock"></i> Secure charge</span></div>
             @if($paymentSettings['refund_verification'])<p class="charge-note">This amount will be refunded after the payment is confirmed.</p>@endif
         </section>
         <section class="form-card" aria-labelledby="form-title">
-            <div class="form-heading"><h2 id="form-title">Your details</h2></div>
+            <div class="form-heading"><h2 id="form-title">Cardholder details</h2></div>
             <div class="claim-chip"><i class="fa-solid fa-receipt"></i><span><small>{{ $paymentSettings['payment_reference_label'] }}</small><strong>{{ $claim->claim_reference }}</strong></span></div>
             @if(isset($error))<div class="error"><i class="fa-solid fa-circle-exclamation"></i> {{ $error }}</div>@endif
             @if(session('error'))<div class="error"><i class="fa-solid fa-circle-exclamation"></i> {{ session('error') }}</div>@endif
@@ -49,7 +49,7 @@
             </form>
         </section>
     </main>
-    <footer class="footer"><span>© {{ date('Y') }} {{ $brandSettings["brand_name"] }}. {{ $brandSettings["brand_footer_text"] }}</span><span>Need help with this payment? @if($paymentSettings['support_email'])Contact <a href="mailto:{{ $paymentSettings['support_email'] }}">{{ $paymentSettings['support_email'] }}</a>.@elseif($paymentSettings['support_phone'])Contact {{ $paymentSettings['support_phone'] }}.@elseContact support for assistance.@endif</span></footer>
+    <footer class="footer"><span>© {{ date('Y') }} {{ $brandSettings["brand_name"] }}. {{ $brandSettings["brand_footer_text"] }}</span><span>Need help with this card transaction? @if($paymentSettings['support_email'])Contact <a href="mailto:{{ $paymentSettings['support_email'] }}">{{ $paymentSettings['support_email'] }}</a>.@elseif($paymentSettings['support_phone'])Contact {{ $paymentSettings['support_phone'] }}.@elseContact support for assistance.@endif</span></footer>
 </div>
 @if($paymentSettings['gateway'] === 'paystack')<script src="https://js.paystack.co/v2/inline.js"></script>@endif
 <script>
@@ -58,7 +58,7 @@ const resetButton=()=>{button.disabled=false;button.querySelector('span').textCo
 form.addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;button.querySelector('span').textContent='Connecting…';message.textContent='';
  try{const response=await fetch(@json(route('verify.initialize',$claim)),{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':@json(csrf_token())},body:JSON.stringify({name:document.getElementById('name').value,email:document.getElementById('email').value})});const data=await response.json();if(!response.ok)throw new Error(data.message||'Could not start checkout. Please check your details and try again.');
  @if($paymentSettings['gateway'] === 'paystack')
- if(data.access_code&&window.PaystackPop){const popup=new PaystackPop();popup.resumeTransaction(data.access_code);const statusUrl=@json(route('verify.status',['token'=>$claim->public_token,'reference'=>'REFERENCE'])).replace('REFERENCE',encodeURIComponent(data.reference));const completeUrl=@json(route('verify.complete',['token'=>$claim->public_token,'gateway'=>$paymentSettings['gateway']]));let checks=0;const poll=setInterval(async()=>{checks++;try{const statusResponse=await fetch(statusUrl,{headers:{'Accept':'application/json'}}),payment=await statusResponse.json();if(payment.status==='success'){clearInterval(poll);window.location.assign(completeUrl+'?reference='+encodeURIComponent(data.reference));return;}}catch(error){}if(checks>=24){clearInterval(poll);message.textContent='If you completed payment, contact support with your payment reference.';resetButton();}},2500);return;}
+ if(data.access_code&&window.PaystackPop){const popup=new PaystackPop();popup.resumeTransaction(data.access_code);const statusUrl=@json(route('verify.status',['token'=>$claim->public_token,'reference'=>'REFERENCE'])).replace('REFERENCE',encodeURIComponent(data.reference));const completeUrl=@json(route('verify.complete',['token'=>$claim->public_token,'gateway'=>$paymentSettings['gateway']]));let checks=0;const poll=setInterval(async()=>{checks++;try{const statusResponse=await fetch(statusUrl,{headers:{'Accept':'application/json'}}),payment=await statusResponse.json();if(payment.status==='success'){clearInterval(poll);window.location.assign(completeUrl+'?reference='+encodeURIComponent(data.reference));return;}}catch(error){}if(checks>=24){clearInterval(poll);message.textContent='If your card was charged but this screen did not confirm it, contact support with the transaction reference.';resetButton();}},2500);return;}
  @endif
  if(data.redirect_url){window.location.assign(data.redirect_url);return;}throw new Error('Secure checkout could not be opened. Please try again.');
  }catch(error){message.textContent=error.message;resetButton();}
