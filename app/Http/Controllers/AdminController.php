@@ -339,7 +339,7 @@ class AdminController extends Controller
 
     public function createLink(Request $request)
     {
-        $data = $request->validate(['name' => ['nullable', 'string', 'max:120'], 'email' => ['nullable', 'required_without:phone', 'email', 'max:255'], 'phone' => ['nullable', 'required_without:email', 'string', 'regex:/^\\+?[0-9\\s().-]{7,25}$/'], 'claim_reference' => ['required', 'string', 'max:100', 'unique:parcel_claims,claim_reference']]);
+        $data = $request->validate(['name' => ['nullable', 'string', 'max:120'], 'email' => ['nullable', 'email', 'max:255'], 'phone' => ['nullable', 'string', 'regex:/^\\+?[0-9\\s().-]{7,25}$/'], 'claim_reference' => ['required', 'string', 'max:100', 'unique:parcel_claims,claim_reference']]);
         $token = (string) Str::uuid();
         $claim = ParcelClaim::create([
             'customer_name' => ($data['name'] ?? null) ?: 'Customer',
@@ -348,7 +348,7 @@ class AdminController extends Controller
             'public_token' => $token,
         ]);
 
-        return redirect()->route('admin.claims')->with('status', 'Customer form link created. Choose email or WhatsApp to share it.')->with('generated_link', route('verify.show', $claim->public_token))->with('generated_email', $data['email'] ?? '')->with('generated_phone', $data['phone'] ?? '');
+        return redirect()->route('admin.claims')->with('status', 'Payment link created. Share it with the customer; they can enter their contact details on the form.')->with('generated_link', route('verify.show', $claim->public_token))->with('generated_email', $data['email'] ?? '')->with('generated_phone', $data['phone'] ?? '');
     }
 
     public function charge(Request $request, SavedCard $card, PaymentGatewayManager $gateways, PaymentSettings $settings, AutoBasicSubscriptionEnrollment $basicEnrollment)

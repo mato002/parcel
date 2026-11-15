@@ -281,27 +281,6 @@
 
         document.addEventListener('submit', async event => {
             const form = event.target;
-            if (form instanceof HTMLFormElement && form.id === 'link-form') {
-                const email = form.elements.email.value.trim();
-                const phone = form.elements.phone.value.trim();
-                if (!email && !phone) {
-                    event.preventDefault();
-                    event.stopImmediatePropagation();
-                    if (window.Swal) {
-                        await Swal.fire({
-                            target: form.closest('dialog') || document.body,
-                            title: 'Contact details required',
-                            text: 'Add an email address or WhatsApp number to create and share this payment link.',
-                            icon: 'warning',
-                            confirmButtonText: 'OK',
-                            confirmButtonColor: '#15516a',
-                        });
-                    } else {
-                        window.alert('Add an email address or WhatsApp number to create and share this payment link.');
-                    }
-                    return;
-                }
-            }
             if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-confirm')) return;
 
             if (form.dataset.confirmed === 'true') {
