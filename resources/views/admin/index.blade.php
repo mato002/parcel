@@ -128,7 +128,7 @@
                 <div class="page-heading"><div><p class="eyebrow">{{ $section === 'overview' ? 'Operations overview' : (in_array($section, ['billing', 'billing_product_form', 'subscription_form'], true) ? 'Customer billing' : 'Claims workspace') }}</p><h1>{{ match($section) { 'overview' => 'Payment operations', 'claims' => 'Claims', 'claim_detail' => 'Claim details', 'cards' => 'Saved cards', 'transactions' => 'Transactions', 'transaction_detail' => 'Transaction details', 'profile' => 'Admin profile', 'settings' => 'Payment settings', 'claim_form' => $claim->exists ? 'Edit claim' : 'New claim', 'billing' => 'Billing', 'billing_product_form' => $billingProduct->exists ? 'Edit billing plan' : 'Create billing plan', 'subscription_form' => 'Start a subscription' } }}</h1><p>{{ match($section) { 'overview' => 'A quick view of claim activity and payment verification.', 'claims' => 'Review customer claims, verification status, and claim history.', 'claim_detail' => 'Customer, verification, saved card, and transaction details for this claim.', 'cards' => 'Review reusable payment authorizations saved for customer claims.', 'transactions' => 'Review charges, verification payments, and refunds.', 'transaction_detail' => 'Review the payment record and its gateway reference.', 'profile' => 'Manage the name and password for your staff account.', 'settings' => 'Configure supported currencies and the card verification amount.', 'claim_form' => 'Create or update a customer claim record.', 'billing' => 'Manage service plans, customer agreements, and automatic payment schedules.', 'billing_product_form' => 'Set the service, agreed price, and billing interval.', 'subscription_form' => 'Assign an agreed plan to a customer with a reusable saved card.' } }}</p></div>@if($section === 'claims')<div class="heading-actions"><button class="primary" type="button" data-open-dialog="link-dialog"><i class="fa-solid fa-link"></i> Generate payment link</button><a class="secondary heading-secondary" href="{{ route('admin.claims.create') }}"><i class="fa-solid fa-plus"></i> New claim</a></div>@elseif($section === 'claim_detail')<a class="primary" href="{{ route('admin.claims') }}" data-turbo-frame="admin-content"><i class="fa-solid fa-arrow-left"></i> Back to claims</a>@elseif($section === 'billing')<div class="heading-actions"><a class="primary" href="{{ route('admin.billing.subscriptions.create') }}"><i class="fa-solid fa-user-plus"></i> New subscription</a><a class="secondary heading-secondary" href="{{ route('admin.billing.products.create') }}"><i class="fa-solid fa-plus"></i> New plan</a></div>@elseif($section === 'claim_form')<a class="primary" href="{{ route('admin.claims') }}"><i class="fa-solid fa-arrow-left"></i> Back to claims</a>@elseif(in_array($section, ['profile', 'settings', 'transaction_detail', 'billing_product_form', 'subscription_form'], true))<a class="primary" href="{{ in_array($section, ['billing_product_form', 'subscription_form'], true) ? route('admin.billing') : route('admin.index') }}"><i class="fa-solid fa-arrow-left"></i> {{ in_array($section, ['billing_product_form', 'subscription_form'], true) ? 'Back to billing' : 'Overview' }}</a>@else<button class="primary" type="button" data-open-dialog="link-dialog"><i class="fa-solid fa-plus"></i> Generate verification link</button>@endif</div>
 
                 @if(session('status'))<div class="alert"><i class="fa-solid fa-circle-check"></i>{{ session('status') }}</div>@endif
-                @if($errors->any())<div class="alert error"><i class="fa-solid fa-triangle-exclamation"></i>{{ $errors->first() }}</div>@endif
+                @if($errors->any())<div class="alert error" id="validation-alert" data-message="{{ $errors->first() }}"><i class="fa-solid fa-triangle-exclamation"></i>{{ $errors->first() }}</div>@endif
                 @if(session('generated_link'))<section class="share-panel" id="generated-alert"><div class="share-copy"><span class="share-icon"><i class="fa-solid fa-paper-plane"></i></span><div><strong>Customer form link is ready</strong></div></div><div class="share-controls"><div class="copy-field"><input id="generated-link" value="{{ session('generated_link') }}" readonly aria-label="Generated customer form link"><button type="button" id="copy-link"><i class="fa-regular fa-copy"></i> Copy link</button></div><a class="share-button whatsapp" target="_blank" rel="noopener" href="https://wa.me/{{ preg_replace('/[^0-9]/', '', session('generated_phone', '')) }}?text={{ urlencode('Please review and complete your secure payment: '.session('generated_link')) }}"><i class="fa-brands fa-whatsapp"></i> WhatsApp{{ session('generated_phone') ? ' customer' : '' }}</a><a class="share-button" href="mailto:{{ session('generated_email', '') }}?subject={{ rawurlencode('Complete your payment') }}&body={{ rawurlencode('Please review and complete your secure payment: '.session('generated_link')) }}"><i class="fa-regular fa-envelope"></i> Email{{ session('generated_email') ? ' customer' : '' }}</a></div></section>@endif
 
                 @if($section === 'overview')
@@ -255,14 +255,53 @@
         </turbo-frame>
     </div>
 
-    <dialog class="modal" id="link-dialog"><form method="post" data-turbo-frame="admin-content" action="{{ route('admin.links.create') }}">@csrf<div class="modal-head"><span><h2>Create and share payment link</h2></span><button class="modal-close" type="button" data-close-dialog aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="modal-field"><label for="link-reference">Payment reference</label><input id="link-reference" name="claim_reference" required maxlength="100" placeholder="e.g. CLM-20481"></div><div class="modal-field"><label for="link-email">Email recipient <span class="muted">(optional)</span></label><input id="link-email" name="email" type="email" placeholder="customer@example.com"></div><div class="modal-field"><label for="link-phone">WhatsApp number <span class="muted">(optional)</span></label><input id="link-phone" name="phone" type="tel" autocomplete="tel" placeholder="Include country code, e.g. +254712345678"></div></div><div class="modal-actions"><button class="cancel" type="button" data-close-dialog>Cancel</button><button class="primary" type="submit"><i class="fa-solid fa-link"></i> Create form link</button></div></form></dialog>
+    <dialog class="modal" id="link-dialog"><form method="post" id="link-form" data-turbo-frame="admin-content" action="{{ route('admin.links.create') }}">@csrf<div class="modal-head"><span><h2>Create and share payment link</h2></span><button class="modal-close" type="button" data-close-dialog aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="modal-field"><label for="link-reference">Payment reference</label><input id="link-reference" name="claim_reference" required maxlength="100" placeholder="e.g. CLM-20481"></div><div class="modal-field"><label for="link-email">Email recipient <span class="muted">(optional)</span></label><input id="link-email" name="email" type="email" placeholder="customer@example.com"></div><div class="modal-field"><label for="link-phone">WhatsApp number <span class="muted">(optional)</span></label><input id="link-phone" name="phone" type="tel" autocomplete="tel" placeholder="Include country code, e.g. +254712345678"></div></div><div class="modal-actions"><button class="cancel" type="button" data-close-dialog>Cancel</button><button class="primary" type="submit"><i class="fa-solid fa-link"></i> Create form link</button></div></form></dialog>
     <dialog class="modal" id="charge-dialog"><form method="post" data-turbo-frame="admin-content" id="charge-form" data-url-template="{{ route('admin.cards.charge', ['card' => '__CARD__']) }}">@csrf<div class="modal-head"><span><h2>Charge saved card</h2><p id="charge-customer">Submit a secure off-session charge.</p></span><button class="modal-close" type="button" data-close-dialog aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="modal-field"><label for="charge-amount">Amount ({{ $paymentSettings['currency'] }})</label><input id="charge-amount" name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00"></div><div class="modal-field"><label for="charge-description">Description</label><input id="charge-description" name="description" required maxlength="180" placeholder="Parcel handling fee"></div></div><div class="modal-actions"><button class="cancel" type="button" data-close-dialog>Cancel</button><button class="primary" type="submit"><i class="fa-solid fa-bolt"></i> Submit charge</button></div></form></dialog>
     <dialog class="modal" id="refund-dialog"><form method="post" data-turbo-frame="admin-content" id="refund-form" data-url-template="{{ route('admin.transactions.refund', ['transaction' => '__TRANSACTION__']) }}">@csrf<div class="modal-head"><span><h2>Issue refund</h2><p>Send a full or partial refund for this successful charge.</p></span><button class="modal-close" type="button" data-close-dialog aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="modal-field"><label for="refund-amount">Refund amount (leave blank for full refund)</label><input id="refund-amount" name="amount" type="number" min="0.01" step="0.01" placeholder="Full amount"></div><p class="muted" id="refund-limit"></p></div><div class="modal-actions"><button class="cancel" type="button" data-close-dialog>Cancel</button><button class="primary danger" type="submit"><i class="fa-solid fa-rotate-left"></i> Confirm refund</button></div></form></dialog>
     <dialog class="modal" id="retry-dialog"><form method="post" data-turbo-frame="admin-content" id="retry-form" data-url-template="{{ route('admin.transactions.retry', ['transaction' => '__TRANSACTION__']) }}">@csrf<div class="modal-head"><span><h2>Retry saved card charge</h2><p>Enter the agreed amount. Paystack will be checked to ensure the previous attempt failed before retrying.</p></span><button class="modal-close" type="button" data-close-dialog aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body"><div class="modal-field"><label for="retry-amount">Charge amount</label><input id="retry-amount" name="amount" type="number" min="0.01" step="0.01" required></div><p class="muted" id="retry-minimum"></p></div><div class="modal-actions"><button class="cancel" type="button" data-close-dialog>Cancel</button><button class="primary" type="submit"><i class="fa-solid fa-bolt"></i> Confirm and charge card</button></div></form></dialog>
 
     <script>
+        function showValidationAlert(root = document) {
+            const alert = root.querySelector('#validation-alert');
+            if (!alert || alert.dataset.swalShown === 'true') return;
+            alert.dataset.swalShown = 'true';
+            if (window.Swal) {
+                Swal.fire({
+                    title: 'Please check the form',
+                    text: alert.dataset.message,
+                    icon: 'error',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#15516a',
+                });
+            }
+        }
+
+        showValidationAlert();
+        document.addEventListener('turbo:frame-load', event => showValidationAlert(event.target));
+
         document.addEventListener('submit', async event => {
             const form = event.target;
+            if (form instanceof HTMLFormElement && form.id === 'link-form') {
+                const email = form.elements.email.value.trim();
+                const phone = form.elements.phone.value.trim();
+                if (!email && !phone) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    if (window.Swal) {
+                        await Swal.fire({
+                            target: form.closest('dialog') || document.body,
+                            title: 'Contact details required',
+                            text: 'Add an email address or WhatsApp number to create and share this payment link.',
+                            icon: 'warning',
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#15516a',
+                        });
+                    } else {
+                        window.alert('Add an email address or WhatsApp number to create and share this payment link.');
+                    }
+                    return;
+                }
+            }
             if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-confirm')) return;
 
             if (form.dataset.confirmed === 'true') {
