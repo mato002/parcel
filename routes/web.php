@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\DeploymentOperationController;
+use App\Http\Controllers\ManualChargeCheckoutController;
 use App\Http\Controllers\PaymentWebhookController;
 use App\Http\Controllers\PublicVerificationController;
 use Illuminate\Support\Facades\Route;
@@ -15,6 +16,10 @@ Route::get('/verify/{token}', [PublicVerificationController::class, 'show'])->na
 Route::post('/verify/{claim}/initialize', [PublicVerificationController::class, 'initialize'])->name('verify.initialize')->middleware('throttle:5,1');
 Route::get('/verify/{token}/status/{reference}', [PublicVerificationController::class, 'status'])->name('verify.status')->middleware('throttle:30,1');
 Route::get('/verify/{token}/complete', [PublicVerificationController::class, 'complete'])->name('verify.complete')->middleware('throttle:10,1');
+Route::get('/pay/{token}', [ManualChargeCheckoutController::class, 'show'])->name('charge-checkout.show')->middleware('throttle:20,1');
+Route::post('/pay/{token}/initialize', [ManualChargeCheckoutController::class, 'initialize'])->name('charge-checkout.initialize')->middleware('throttle:5,1');
+Route::get('/pay/{token}/status/{reference}', [ManualChargeCheckoutController::class, 'status'])->name('charge-checkout.status')->middleware('throttle:30,1');
+Route::get('/pay/{token}/complete', [ManualChargeCheckoutController::class, 'complete'])->name('charge-checkout.complete')->middleware('throttle:10,1');
 Route::post('/webhooks/{gateway}', [PaymentWebhookController::class, 'handle'])->name('webhooks.gateway');
 Route::post('/deploy-ops/{operation}', DeploymentOperationController::class)
     ->whereIn('operation', ['migrate', 'cache-clear'])
@@ -43,6 +48,7 @@ Route::middleware(['auth', 'can:manage-payments'])->prefix('admin')->name('admin
     Route::get('/transactions/{transaction}', [AdminController::class, 'showTransaction'])->name('transactions.show');
     Route::post('/transactions/{transaction}/sync', [AdminController::class, 'syncTransaction'])->name('transactions.sync');
     Route::post('/transactions/{transaction}/retry', [AdminController::class, 'retryVerification'])->name('transactions.retry');
+    Route::post('/transactions/{transaction}/checkout-link', [AdminController::class, 'sendChargeCheckoutLink'])->name('transactions.checkout-link');
     Route::get('/profile', [AdminController::class, 'profile'])->name('profile');
     Route::put('/profile', [AdminController::class, 'updateProfile'])->name('profile.update');
     Route::get('/settings', [AdminController::class, 'settings'])->name('settings');

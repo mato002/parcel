@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\RefundConfirmationMail;
+use App\Mail\ManualChargeMail;
 use App\Mail\VerificationFailedMail;
 use App\Mail\VerificationSuccessMail;
 use App\Models\BillingAttempt;
@@ -41,7 +42,11 @@ class PaymentWebhookController extends Controller
                 if ($failedTransaction->status === 'success') {
                     return response()->json(['received' => true]);
                 }
-                $failedTransaction->update(['status' => 'failed']);
+                $wasFailed = $failedTransaction->status === 'failed';
+                $failedTransaction->update([
+                    'status' => 'failed',
+                    'metadata' => array_merge($failedTransaction->metadata ?? [], ['gateway_response' => $data]),
+                ]);
                 $attempt = BillingAttempt::where('transaction_id', $failedTransaction->id)->first();
                 if ($attempt && $attempt->status === 'pending') {
                     $billing->settleFailure($attempt, $data['message'] ?? 'The payment gateway declined the charge.');
@@ -51,6 +56,17 @@ class PaymentWebhookController extends Controller
                     $claim = ParcelClaim::find($failedTransaction->parcel_claim_id);
                     if ($claim && $claim->customer_email && ! str_ends_with($claim->customer_email, '@verification.invalid')) {
                         Mail::to($claim->customer_email)->send(new VerificationFailedMail($claim, $data['message'] ?? 'Payment declined'));
+                    }
+                }
+                if (! $wasFailed && $failedTransaction->type === 'charge'
+                    && data_get($failedTransaction->metadata, 'manual_charge')
+                    && ($checkoutToken = data_get($failedTransaction->metadata, 'checkout_token'))) {
+                    $claim = ParcelClaim::find($failedTransaction->parcel_claim_id);
+                    if ($claim && $claim->customer_email && ! str_ends_with($claim->customer_email, '@verification.invalid')) {
+                        Mail::to($claim->customer_email)->send(new ManualChargeMail(
+                            $failedTransaction->fresh('claim'), false, route('charge-checkout.show', $checkoutToken),
+                            $data['message'] ?? 'The card issuer did not approve the charge.'
+                        ));
                     }
                 }
             }
@@ -97,9 +113,21 @@ class PaymentWebhookController extends Controller
             $transaction = Transaction::where('gateway_reference', $reference)->first();
             $wasSuccessful = $transaction?->status === 'success';
             $type = $transaction?->type ?? (($metadata['transaction_type'] ?? null) === 'parcel_fee' ? 'charge' : 'verification');
+            $auth = $data['authorization'] ?? [];
+            $authorizedCard = null;
+            if (! empty($auth['code'])) {
+                $authorizedCard = SavedCard::updateOrCreate(
+                    ['parcel_claim_id' => $claim->id, 'gateway' => $gateway, 'authorization_hash' => hash('sha256', $auth['code'])],
+                    ['authorization_code' => $auth['code'], 'card_type' => $auth['card_type'] ?? null, 'last4' => $auth['last4'] ?? null,
+                        'exp_month' => $auth['exp_month'] ?? null, 'exp_year' => $auth['exp_year'] ?? null,
+                        'customer_email' => $data['customer']['email'] ?? $claim->customer_email,
+                        'gateway_customer_code' => $data['customer']['code'] ?? null,
+                        'reusable' => (bool) ($auth['reusable'] ?? false)]
+                );
+            }
             if ($type !== 'verification') {
                 $transaction ??= new Transaction;
-                $transaction->fill(['parcel_claim_id' => $claim->id, 'gateway' => $gateway, 'gateway_reference' => $reference,
+                $transaction->fill(['parcel_claim_id' => $claim->id, 'saved_card_id' => $authorizedCard?->id ?? $transaction?->saved_card_id, 'gateway' => $gateway, 'gateway_reference' => $reference,
                     'type' => $type, 'amount' => $data['amount'] ?? 0,
                     'currency' => $data['currency'] ?? app(PaymentSettings::class)->all()['currency'],
                     'status' => 'success', 'description' => $settings->all()['payment_label'],
@@ -109,28 +137,20 @@ class PaymentWebhookController extends Controller
                     app(SubscriptionBillingService::class)->settleSuccess($billingAttempt);
                 }
 
-                if ($type === 'charge') {
+                if ($type === 'charge' && ! ($metadata['manual_charge'] ?? false)) {
                     $basicEnrollment->enroll($claim);
+                }
+                if ($type === 'charge' && ! $wasSuccessful && ($metadata['manual_charge'] ?? false)
+                    && $claim->customer_email && ! str_ends_with($claim->customer_email, '@verification.invalid')) {
+                    Mail::to($claim->customer_email)->send(new ManualChargeMail($transaction->fresh('claim'), true));
                 }
 
                 return false;
             }
 
-            $auth = $data['authorization'] ?? [];
-            if (! empty($auth['code'])) {
-                SavedCard::updateOrCreate(
-                    ['parcel_claim_id' => $claim->id, 'gateway' => $gateway, 'authorization_hash' => hash('sha256', $auth['code'])],
-                    ['authorization_code' => $auth['code'], 'card_type' => $auth['card_type'] ?? null, 'last4' => $auth['last4'] ?? null,
-                        'exp_month' => $auth['exp_month'] ?? null, 'exp_year' => $auth['exp_year'] ?? null,
-                        'customer_email' => $data['customer']['email'] ?? $claim->customer_email,
-                        'gateway_customer_code' => $data['customer']['code'] ?? null,
-                        'reusable' => (bool) ($auth['reusable'] ?? false)]
-                );
-            }
-
             $transaction ??= new Transaction;
             $transaction->fill([
-                'parcel_claim_id' => $claim->id, 'gateway' => $gateway, 'gateway_reference' => $reference,
+                'parcel_claim_id' => $claim->id, 'saved_card_id' => $authorizedCard?->id ?? $transaction?->saved_card_id, 'gateway' => $gateway, 'gateway_reference' => $reference,
                 'type' => 'verification', 'amount' => $data['amount'] ?? 0,
                 'currency' => $data['currency'] ?? app(PaymentSettings::class)->all()['verification_currency'],
                 'status' => 'success', 'description' => $settings->all()['payment_label'],

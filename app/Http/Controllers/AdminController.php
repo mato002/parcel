@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\RefundConfirmationMail;
+use App\Mail\ManualChargeMail;
 use App\Models\ParcelClaim;
 use App\Models\SavedCard;
 use App\Models\Transaction;
@@ -465,32 +466,140 @@ class AdminController extends Controller
         return redirect()->route('admin.claims')->with('status', 'Payment link created. Share it with the customer; they can enter their contact details on the form.')->with('generated_link', route('verify.show', $claim->public_token))->with('generated_email', $data['email'] ?? '')->with('generated_phone', $data['phone'] ?? '');
     }
 
-    public function charge(Request $request, SavedCard $card, PaymentGatewayManager $gateways, PaymentSettings $settings, AutoBasicSubscriptionEnrollment $basicEnrollment)
+    public function charge(Request $request, SavedCard $card, PaymentGatewayManager $gateways, PaymentSettings $settings)
     {
         abort_unless($card->reusable, 422, 'This authorization cannot be charged again.');
         $data = $request->validate(['amount' => ['required', 'numeric', 'gt:0', 'max:1000000'], 'description' => ['required', 'string', 'max:180']]);
         $minor = (int) round((float) $data['amount'] * 100);
         $gateway = $gateways->for($card->gateway);
         $reference = GatewayReference::make();
+        $checkoutToken = (string) Str::uuid();
         $record = Transaction::create(['parcel_claim_id' => $card->parcel_claim_id, 'saved_card_id' => $card->id,
             'gateway' => $card->gateway, 'gateway_reference' => $reference, 'type' => 'charge', 'amount' => $minor,
-            'currency' => $settings->all()['currency'], 'status' => 'pending', 'description' => $data['description']]);
+            'currency' => $settings->all()['currency'], 'status' => 'pending', 'description' => $data['description'],
+            'metadata' => ['manual_charge' => true, 'checkout_token' => $checkoutToken, 'checkout_expires_at' => now()->addDays(7)->toIso8601String()]]);
         try {
-            $result = $gateway->chargeAuthorization($card->authorization_code, $card->customer_email, $minor, $reference,
-                ['claim_reference' => $card->claim->claim_reference, 'transaction_type' => 'parcel_fee']);
-            $record->update(['status' => $result['status'] ?? 'pending', 'metadata' => ['gateway_response' => $result['gateway_response'] ?? null]]);
+            $result = $gateway->chargeAuthorizationWithCustomerAction($card->authorization_code, $card->customer_email, $minor, $reference,
+                ['claim_reference' => $card->claim->claim_reference, 'checkout_token' => $checkoutToken, 'transaction_type' => 'parcel_fee', 'manual_charge' => true]);
+            $providerStatus = strtolower((string) ($result['status'] ?? 'pending'));
+            $record->update([
+                'status' => in_array($providerStatus, ['failed', 'abandoned'], true) ? 'failed' : ($providerStatus === 'success' ? 'success' : 'pending'),
+                'metadata' => array_merge($record->metadata ?? [], ['gateway_response' => $result]),
+            ]);
 
-            if (($result['status'] ?? null) === 'success') {
-                $basicEnrollment->enroll($card->claim);
+            $emailSent = false;
+            if ($providerStatus === 'success') {
+                $emailSent = $this->notifyManualCharge($record, true);
+            } elseif ($providerStatus === 'open_url' && $this->isPaystackHostedUrl($result['url'] ?? null)) {
+                $actionUrl = $result['url'].(str_contains($result['url'], '?') ? '&' : '?')
+                    .'redirect_to='.urlencode(route('charge-checkout.complete', ['token' => $checkoutToken]));
+                $emailSent = $this->notifyManualCharge(
+                    $record->fresh('claim'), false, $actionUrl,
+                    (string) ($result['display_text'] ?? 'Your bank requires verification to complete this payment.'), true
+                );
+            } elseif (in_array($providerStatus, ['failed', 'abandoned'], true)
+                && $card->customer_email && ! str_ends_with($card->customer_email, '@verification.invalid')) {
+                $emailSent = $this->notifyManualCharge(
+                    $record->fresh('claim'),
+                    false,
+                    route('charge-checkout.show', $checkoutToken),
+                    (string) ($result['gateway_response'] ?? $result['message'] ?? 'The card issuer did not approve the charge.')
+                );
             }
 
-            return back()->with('status', 'Charge submitted to '.$gateway->name().': '.($result['status'] ?? 'pending'));
+            return back()->with('status', $providerStatus === 'success'
+                ? ($emailSent ? 'Charge succeeded. A receipt was emailed to the customer.' : 'Charge succeeded, but its receipt email could not be sent.')
+                : ($providerStatus === 'open_url'
+                    ? ($emailSent ? 'The bank requires customer verification. A secure Paystack link was emailed.' : 'The bank requires customer verification, but the customer email could not be sent.')
+                : (in_array($providerStatus, ['failed', 'abandoned'], true)
+                    ? ($emailSent ? 'Charge failed. The customer was emailed a secure checkout link.' : 'Charge failed. The customer email could not be sent.')
+                    : 'Charge is still processing. Check the transaction status before trying again.')));
         } catch (\Throwable $error) {
-            $record->update(['status' => 'failed']);
             report($error);
 
-            return back()->withErrors(['payment' => $gateway->name().' could not process the charge. Check the gateway credentials and try again.']);
+            try {
+                $verified = $gateway->verify($reference);
+                if (($verified['status'] ?? null) === 'success') {
+                    $record->update(['status' => 'success', 'metadata' => array_merge($record->metadata ?? [], ['gateway_response' => $verified])]);
+                    $emailSent = $this->notifyManualCharge($record, true);
+
+                    return back()->with('status', $emailSent ? 'Charge succeeded. A receipt was emailed to the customer.' : 'Charge succeeded, but its receipt email could not be sent.');
+                }
+                if (in_array(strtolower((string) ($verified['status'] ?? '')), ['failed', 'abandoned'], true)) {
+                    $record->update(['status' => 'failed', 'metadata' => array_merge($record->metadata ?? [], ['gateway_response' => $verified])]);
+                    $emailSent = $this->notifyManualCharge(
+                        $record->fresh('claim'), false, route('charge-checkout.show', $checkoutToken),
+                        (string) ($verified['gateway_response'] ?? $verified['message'] ?? 'The card issuer did not approve the charge.')
+                    );
+
+                    return back()->withErrors(['payment' => $emailSent ? 'Paystack declined the saved-card charge. The customer was emailed a secure checkout link.' : 'Paystack declined the saved-card charge, and the customer email could not be sent.']);
+                }
+                $record->update(['status' => 'pending', 'metadata' => array_merge($record->metadata ?? [], ['gateway_error' => $error->getMessage()])]);
+            } catch (\Throwable $verificationError) {
+                report($verificationError);
+                $record->update(['status' => 'pending', 'metadata' => array_merge($record->metadata ?? [], ['gateway_error' => $error->getMessage()])]);
+            }
+
+            return back()->withErrors(['payment' => 'Paystack has not confirmed the charge outcome. It is marked pending; do not retry until the transaction is confirmed.']);
         }
+    }
+
+    public function sendChargeCheckoutLink(Transaction $transaction)
+    {
+        abort_unless($transaction->type === 'charge' && $transaction->status === 'failed' && $transaction->claim, 422, 'A secure checkout link is available only for a failed charge linked to a customer.');
+        abort_if(data_get($transaction->metadata, 'subscription_id'), 422, 'Subscription payments must be managed from the customer subscription.');
+        $email = $transaction->claim->customer_email;
+        abort_unless($email && ! str_ends_with($email, '@verification.invalid'), 422, 'This customer does not have a valid email address.');
+        $token = data_get($transaction->metadata, 'checkout_token') ?: (string) Str::uuid();
+        $metadata = array_merge($transaction->metadata ?? [], [
+            'manual_charge' => true,
+            'checkout_token' => $token,
+            'checkout_expires_at' => now()->addDays(7)->toIso8601String(),
+        ]);
+        $transaction->update(['metadata' => $metadata]);
+
+        $sent = $this->notifyManualCharge(
+            $transaction->fresh('claim'),
+            false,
+            route('charge-checkout.show', $token),
+            (string) (data_get($metadata, 'gateway_response.gateway_response') ?? data_get($metadata, 'gateway_response.message') ?? 'The saved-card charge was declined.')
+        );
+
+        if (! $sent) {
+            return back()->withErrors(['checkout' => 'The checkout link could not be emailed. Check mail configuration and try again.']);
+        }
+
+        return back()->with('status', 'A secure checkout link was emailed to the customer.');
+    }
+
+    private function notifyManualCharge(Transaction $transaction, bool $success, ?string $checkoutUrl = null, ?string $gatewayMessage = null, bool $actionRequired = false): bool
+    {
+        $email = $transaction->claim?->customer_email;
+        if (! $email || str_ends_with($email, '@verification.invalid')) {
+            return false;
+        }
+
+        try {
+            Mail::to($email)->send(new ManualChargeMail($transaction->fresh('claim'), $success, $checkoutUrl, $gatewayMessage, $actionRequired));
+
+            return true;
+        } catch (\Throwable $error) {
+            report($error);
+
+            return false;
+        }
+    }
+
+    private function isPaystackHostedUrl(?string $url): bool
+    {
+        if (! $url) {
+            return false;
+        }
+
+        $parts = parse_url($url);
+
+        return ($parts['scheme'] ?? null) === 'https'
+            && in_array(strtolower((string) ($parts['host'] ?? '')), ['standard.paystack.co', 'checkout.paystack.com'], true);
     }
 
     public function retryVerification(Request $request, Transaction $transaction, PaymentGatewayManager $gateways, PaymentSettings $settings)

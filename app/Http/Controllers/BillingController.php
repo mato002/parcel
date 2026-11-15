@@ -99,7 +99,7 @@ class BillingController extends Controller
         ]);
 
         if ($request->boolean('charge_now') && $start->lessThanOrEqualTo(now())) {
-            app(SubscriptionBillingService::class)->bill($subscription, scheduled: true);
+            app(SubscriptionBillingService::class)->bill($subscription);
             $subscription->refresh();
             $message = $subscription->last_billed_at
                 ? 'Subscription created and first payment succeeded.'
@@ -118,6 +118,11 @@ class BillingController extends Controller
         }
         $charged = $billing->bill($subscription);
         $subscription->refresh();
+        $latestAttempt = $subscription->attempts()->with('transaction')->latest('id')->first();
+        if (! $charged && data_get($latestAttempt?->transaction?->metadata, 'gateway_response.status') === 'open_url') {
+            return back()->with('status', 'The bank requires customer verification. A secure Paystack link was emailed to the customer.');
+        }
+
         return back()->with('status', $charged ? 'Subscription payment succeeded.' : 'Charge attempt recorded. Current subscription status: '.str_replace('_', ' ', $subscription->status).'.');
     }
 

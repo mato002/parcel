@@ -22,6 +22,8 @@ interface PaymentGateway
 
     public function chargeAuthorization(string $authorizationCode, string $email, int $amount, string $reference, array $metadata = [], ?string $currency = null): array;
 
+    public function chargeAuthorizationWithCustomerAction(string $authorizationCode, string $email, int $amount, string $reference, array $metadata = [], ?string $currency = null): array;
+
     public function refund(string $reference, ?int $amount = null, ?string $reason = null): array;
 
     /** Return a normalized charge event, or null when the webhook is unrelated. */

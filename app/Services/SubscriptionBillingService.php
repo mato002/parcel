@@ -81,14 +81,24 @@ class SubscriptionBillingService
 
             try {
                 $transaction = $attempt->transaction;
-                $result = app(PaymentGatewayManager::class)->for($subscription->card->gateway)->chargeAuthorization(
+                $gateway = app(PaymentGatewayManager::class)->for($subscription->card->gateway);
+                $result = $scheduled
+                    ? $gateway->chargeAuthorization(
                     $subscription->card->authorization_code,
                     $subscription->card->customer_email,
                     $subscription->amount,
                     $transaction->gateway_reference,
                     ['subscription_id' => $subscription->id, 'billing_attempt_id' => $attempt->id, 'transaction_type' => 'parcel_fee'],
                     $subscription->currency,
-                );
+                    )
+                    : $gateway->chargeAuthorizationWithCustomerAction(
+                        $subscription->card->authorization_code,
+                        $subscription->card->customer_email,
+                        $subscription->amount,
+                        $transaction->gateway_reference,
+                        ['subscription_id' => $subscription->id, 'billing_attempt_id' => $attempt->id, 'transaction_type' => 'parcel_fee'],
+                        $subscription->currency,
+                    );
 
                 $status = $result['status'] ?? 'pending';
                 if ($status === 'success') {
@@ -107,6 +117,29 @@ class SubscriptionBillingService
                 $attempt->update(['status' => 'pending']);
                 $subscription->update(['status' => 'past_due', 'retry_at' => null]);
                 $transaction->update(['metadata' => ['subscription_id' => $subscription->id, 'billing_attempt_id' => $attempt->id, 'gateway_response' => $result]]);
+
+                $actionUrl = $result['url'] ?? null;
+                $actionHost = $actionUrl ? parse_url($actionUrl, PHP_URL_HOST) : null;
+                $actionScheme = $actionUrl ? parse_url($actionUrl, PHP_URL_SCHEME) : null;
+                if (! $scheduled && ($result['status'] ?? null) === 'open_url'
+                    && $actionScheme === 'https'
+                    && in_array(strtolower((string) $actionHost), ['standard.paystack.co', 'checkout.paystack.com'], true)
+                    && $subscription->card->customer_email
+                    && ! str_ends_with($subscription->card->customer_email, '@verification.invalid')) {
+                    try {
+                        Mail::to($subscription->card->customer_email)->send(new SubscriptionPaymentMail(
+                            $subscription,
+                            (string) $subscription->amount,
+                            $subscription->currency,
+                            false,
+                            'Your bank requires verification to complete this charge.',
+                            $actionUrl,
+                            true,
+                        ));
+                    } catch (Throwable $error) {
+                        report($error);
+                    }
+                }
 
                 return false;
             } catch (Throwable $error) {

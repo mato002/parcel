@@ -20,13 +20,17 @@ class SubscriptionPaymentMail extends Mailable implements ShouldQueue
         public string $amount,
         public string $currency,
         public bool $success,
-        public ?string $errorMessage = null
+        public ?string $errorMessage = null,
+        public ?string $actionUrl = null,
+        public bool $actionRequired = false,
     ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->success ? 'Payment successful - '.app(PaymentSettings::class)->all()['brand_name'] : 'Payment failed - '.app(PaymentSettings::class)->all()['brand_name'],
+            subject: $this->actionRequired
+                ? 'Action required to complete payment - '.app(PaymentSettings::class)->all()['brand_name']
+                : ($this->success ? 'Payment successful - '.app(PaymentSettings::class)->all()['brand_name'] : 'Payment failed - '.app(PaymentSettings::class)->all()['brand_name']),
         );
     }
 

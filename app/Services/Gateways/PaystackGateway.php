@@ -52,6 +52,19 @@ class PaystackGateway implements PaymentGateway
         ]);
     }
 
+    public function chargeAuthorizationWithCustomerAction(string $authorizationCode, string $email, int $amount, string $reference, array $metadata = [], ?string $currency = null): array
+    {
+        return $this->request('post', '/charge', [
+            'authorization_code' => $authorizationCode,
+            'email' => $email,
+            'amount' => $amount,
+            'currency' => $currency ?? $this->settings->all()['currency'],
+            'reference' => $reference,
+            'metadata' => $metadata,
+            'use_hosted_url' => true,
+        ]);
+    }
+
     public function refund(string $reference, ?int $amount = null, ?string $reason = null): array
     {
         return $this->request('post', '/refund', array_filter([

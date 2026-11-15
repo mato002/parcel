@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $success ? 'Payment Successful' : 'Payment Failed' }}</title>
+<title>{{ $actionRequired ? 'Payment Verification Required' : ($success ? 'Payment Successful' : 'Payment Failed') }}</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -20,6 +20,15 @@
                     <p style="margin: 0;"><strong>Subscription:</strong> {{ $subscription->product_name }}</p>
                     <p style="margin: 5px 0 0;"><strong>Amount:</strong> {{ number_format($amount / 100, 2) }} {{ $currency }}</p>
                 </div>
+            @elseif($actionRequired)
+                <h2 style="color:#9c6820; margin-top: 0;">Bank verification required</h2>
+                <p>Hi,</p>
+                <p>Your bank needs you to confirm this subscription charge. Use the secure Paystack page below to complete verification.</p>
+                <div style="background: #fffaf0; border-left: 4px solid #9c6820; padding: 15px; margin: 20px 0;">
+                    <p style="margin: 0;"><strong>Subscription:</strong> {{ $subscription->product_name }}</p>
+                    <p style="margin: 5px 0 0;"><strong>Amount:</strong> {{ number_format($amount / 100, 2) }} {{ $currency }}</p>
+                </div>
+                @if($actionUrl)<p><a href="{{ $actionUrl }}" style="background: {{ $brandSettings['brand_primary_color'] }}; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">Complete bank verification</a></p>@endif
             @else
                 <h2 style="color: #a33e37; margin-top: 0;">Payment failed</h2>
                 <p>Hi,</p>
