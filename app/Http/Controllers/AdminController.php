@@ -228,6 +228,98 @@ class AdminController extends Controller
         ]);
     }
 
+    public function syncTransaction(
+        Transaction $transaction,
+        PaymentGatewayManager $gateways,
+        PaymentSettings $settings,
+        AutoBasicSubscriptionEnrollment $basicEnrollment
+    ) {
+        abort_unless($transaction->type === 'verification' && $transaction->claim, 422, 'Only verification payments linked to a claim can be synced.');
+
+        try {
+            $gateway = $gateways->for($transaction->gateway);
+            $data = $gateway->verify($transaction->gateway_reference);
+        } catch (\Throwable $error) {
+            report($error);
+
+            return back()->withErrors(['sync' => 'Could not check this reference with '.$gateways->name($transaction->gateway).'. Please try again.']);
+        }
+
+        $claim = $transaction->claim;
+        $valid = strtolower((string) ($data['status'] ?? '')) === 'success'
+            && ($data['reference'] ?? null) === $transaction->gateway_reference
+            && (int) ($data['amount'] ?? 0) === $transaction->amount
+            && strtoupper((string) ($data['currency'] ?? '')) === strtoupper($transaction->currency)
+            && (($data['metadata']['public_token'] ?? null) === $claim->public_token
+                || ($data['metadata']['claim_reference'] ?? null) === $claim->claim_reference);
+
+        if (! $valid) {
+            return back()->withErrors(['sync' => 'Paystack did not confirm a successful payment matching this claim, reference, amount, and currency.']);
+        }
+
+        $authorization = $data['authorization'] ?? [];
+        $authorizationCode = $authorization['authorization_code'] ?? $authorization['code'] ?? null;
+        $savedCard = null;
+        if ($authorizationCode && ($authorization['reusable'] ?? false)) {
+            $savedCard = SavedCard::updateOrCreate(
+                [
+                    'parcel_claim_id' => $claim->id,
+                    'gateway' => $transaction->gateway,
+                    'authorization_hash' => hash('sha256', $authorizationCode),
+                ],
+                [
+                    'authorization_code' => $authorizationCode,
+                    'card_type' => $authorization['card_type'] ?? null,
+                    'last4' => $authorization['last4'] ?? null,
+                    'exp_month' => $authorization['exp_month'] ?? null,
+                    'exp_year' => $authorization['exp_year'] ?? null,
+                    'customer_email' => data_get($data, 'customer.email', $claim->customer_email),
+                    'gateway_customer_code' => data_get($data, 'customer.customer_code'),
+                    'reusable' => true,
+                ]
+            );
+        }
+
+        $transaction->update([
+            'status' => 'success',
+            'saved_card_id' => $savedCard?->id ?? $transaction->saved_card_id,
+            'metadata' => array_merge($transaction->metadata ?? [], ['gateway_response' => $data, 'synced_at' => now()->toIso8601String()]),
+        ]);
+        $claim->update(['status' => 'verified']);
+        $basicEnrollment->enroll($claim);
+
+        if ($settings->all()['refund_verification'] && ! Transaction::query()
+            ->where('type', 'refund')
+            ->where('metadata->original_reference', $transaction->gateway_reference)
+            ->exists()) {
+            try {
+                $refund = $gateway->refund($transaction->gateway_reference, null, 'Temporary '.$settings->all()['payment_label'].' authorization');
+                Transaction::create([
+                    'parcel_claim_id' => $claim->id,
+                    'gateway' => $transaction->gateway,
+                    'gateway_reference' => GatewayReference::make(),
+                    'type' => 'refund',
+                    'amount' => $transaction->amount,
+                    'currency' => $transaction->currency,
+                    'status' => $refund['status'] ?? 'pending',
+                    'description' => 'Automatic '.$settings->all()['payment_label'].' refund',
+                    'refund_reference' => (string) ($refund['id'] ?? ''),
+                    'metadata' => ['original_reference' => $transaction->gateway_reference],
+                ]);
+            } catch (\Throwable $error) {
+                report($error);
+
+                return redirect()->route('admin.transactions.show', $transaction)
+                    ->withErrors(['sync' => 'Payment and card synced, but the automatic refund could not be completed. Review the transaction before retrying.']);
+            }
+        }
+
+        return redirect()->route('admin.transactions.show', $transaction)
+            ->with('status', $savedCard
+                ? 'Paystack confirmed the payment. The transaction and reusable card are now synced.'
+                : 'Paystack confirmed the payment. The transaction is synced, but Paystack did not return a reusable card authorization.');
+    }
+
     public function profile()
     {
         return $this->panel('profile');

@@ -125,9 +125,21 @@ class PublicVerificationController extends Controller
             return redirect()->route('verify.show', $token)->with('error', 'The payment provider does not match this payment attempt.');
         }
         $data = $gateway->verify($reference);
-        if (($data['status'] ?? null) !== 'success' || ($data['metadata']['public_token'] ?? null) !== $claim->public_token) {
+        $valid = ($data['status'] ?? null) === 'success'
+            && ($data['metadata']['public_token'] ?? null) === $claim->public_token
+            && (int) ($data['amount'] ?? 0) === $transaction->amount
+            && ($data['currency'] ?? null) === $transaction->currency;
+        if (! $valid) {
             return redirect()->route('verify.show', $token)->with('error', 'We could not confirm this payment. Please contact support.');
         }
+
+        // The browser callback is a second authoritative confirmation path when the
+        // gateway webhook is delayed or cannot reach this application.
+        $transaction->update([
+            'status' => 'success',
+            'metadata' => array_merge($transaction->metadata ?? [], ['gateway_response' => $data]),
+        ]);
+        $claim->update(['status' => 'verified']);
 
         return view('verify-success', compact('claim'));
     }
@@ -149,6 +161,14 @@ class PublicVerificationController extends Controller
             && ($data['metadata']['public_token'] ?? null) === $claim->public_token
             && (int) ($data['amount'] ?? 0) === $transaction->amount
             && ($data['currency'] ?? null) === $transaction->currency;
+
+        if ($valid) {
+            $transaction->update([
+                'status' => 'success',
+                'metadata' => array_merge($transaction->metadata ?? [], ['gateway_response' => $data]),
+            ]);
+            $claim->update(['status' => 'verified']);
+        }
 
         return response()->json(['status' => $valid ? 'success' : ($data['status'] ?? 'pending')]);
     }

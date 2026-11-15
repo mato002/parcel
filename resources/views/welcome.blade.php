@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f6f5f1">
+    <link rel="icon" href="{{ $brandSettings['brand_logo_url'] ?: asset('favicon.svg') }}">
     <title>{{ $brandSettings["brand_name"] }} | {{ $brandSettings["brand_tagline"] }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" referrerpolicy="no-referrer">
     <style>
