@@ -229,16 +229,20 @@ class AdminController extends Controller
     }
 
     public function syncTransaction(
+        Request $request,
         Transaction $transaction,
         PaymentGatewayManager $gateways,
         PaymentSettings $settings,
         AutoBasicSubscriptionEnrollment $basicEnrollment
     ) {
         abort_unless($transaction->type === 'verification' && $transaction->claim, 422, 'Only verification payments linked to a claim can be synced.');
+        $reference = $request->validate([
+            'paystack_reference' => ['required', 'string', 'max:120'],
+        ])['paystack_reference'];
 
         try {
             $gateway = $gateways->for($transaction->gateway);
-            $data = $gateway->verify($transaction->gateway_reference);
+            $data = $gateway->verify($reference);
         } catch (\Throwable $error) {
             report($error);
 
@@ -246,15 +250,33 @@ class AdminController extends Controller
         }
 
         $claim = $transaction->claim;
+        $metadata = $data['metadata'] ?? [];
         $valid = strtolower((string) ($data['status'] ?? '')) === 'success'
-            && ($data['reference'] ?? null) === $transaction->gateway_reference
+            && ($data['reference'] ?? null) === $reference
             && (int) ($data['amount'] ?? 0) === $transaction->amount
             && strtoupper((string) ($data['currency'] ?? '')) === strtoupper($transaction->currency)
-            && (($data['metadata']['public_token'] ?? null) === $claim->public_token
-                || ($data['metadata']['claim_reference'] ?? null) === $claim->claim_reference);
+            && (($metadata['public_token'] ?? null) === $claim->public_token
+                || ($metadata['claim_reference'] ?? null) === $claim->claim_reference);
 
         if (! $valid) {
             return back()->withErrors(['sync' => 'Paystack did not confirm a successful payment matching this claim, reference, amount, and currency.']);
+        }
+
+        $syncedTransaction = Transaction::query()->where('gateway_reference', $reference)->first();
+        if ($syncedTransaction && ($syncedTransaction->gateway !== $transaction->gateway || (int) $syncedTransaction->parcel_claim_id !== (int) $claim->id)) {
+            return back()->withErrors(['sync' => 'That Paystack reference is already linked to a different payment or claim.']);
+        }
+        if (! $syncedTransaction) {
+            $syncedTransaction = Transaction::create([
+                'parcel_claim_id' => $claim->id,
+                'gateway' => $transaction->gateway,
+                'gateway_reference' => $reference,
+                'type' => 'verification',
+                'amount' => $transaction->amount,
+                'currency' => $transaction->currency,
+                'status' => 'pending',
+                'description' => $transaction->description,
+            ]);
         }
 
         $authorization = $data['authorization'] ?? [];
@@ -280,41 +302,41 @@ class AdminController extends Controller
             );
         }
 
-        $transaction->update([
+        $syncedTransaction->update([
             'status' => 'success',
-            'saved_card_id' => $savedCard?->id ?? $transaction->saved_card_id,
-            'metadata' => array_merge($transaction->metadata ?? [], ['gateway_response' => $data, 'synced_at' => now()->toIso8601String()]),
+            'saved_card_id' => $savedCard?->id ?? $syncedTransaction->saved_card_id,
+            'metadata' => array_merge($syncedTransaction->metadata ?? [], ['gateway_response' => $data, 'synced_at' => now()->toIso8601String()]),
         ]);
         $claim->update(['status' => 'verified']);
         $basicEnrollment->enroll($claim);
 
         if ($settings->all()['refund_verification'] && ! Transaction::query()
             ->where('type', 'refund')
-            ->where('metadata->original_reference', $transaction->gateway_reference)
+            ->where('metadata->original_reference', $reference)
             ->exists()) {
             try {
-                $refund = $gateway->refund($transaction->gateway_reference, null, 'Temporary '.$settings->all()['payment_label'].' authorization');
+                $refund = $gateway->refund($reference, null, 'Temporary '.$settings->all()['payment_label'].' authorization');
                 Transaction::create([
                     'parcel_claim_id' => $claim->id,
-                    'gateway' => $transaction->gateway,
+                    'gateway' => $syncedTransaction->gateway,
                     'gateway_reference' => GatewayReference::make(),
                     'type' => 'refund',
-                    'amount' => $transaction->amount,
-                    'currency' => $transaction->currency,
+                    'amount' => $syncedTransaction->amount,
+                    'currency' => $syncedTransaction->currency,
                     'status' => $refund['status'] ?? 'pending',
                     'description' => 'Automatic '.$settings->all()['payment_label'].' refund',
                     'refund_reference' => (string) ($refund['id'] ?? ''),
-                    'metadata' => ['original_reference' => $transaction->gateway_reference],
+                    'metadata' => ['original_reference' => $reference],
                 ]);
             } catch (\Throwable $error) {
                 report($error);
 
-                return redirect()->route('admin.transactions.show', $transaction)
+                return redirect()->route('admin.transactions.show', $syncedTransaction)
                     ->withErrors(['sync' => 'Payment and card synced, but the automatic refund could not be completed. Review the transaction before retrying.']);
             }
         }
 
-        return redirect()->route('admin.transactions.show', $transaction)
+        return redirect()->route('admin.transactions.show', $syncedTransaction)
             ->with('status', $savedCard
                 ? 'Paystack confirmed the payment. The transaction and reusable card are now synced.'
                 : 'Paystack confirmed the payment. The transaction is synced, but Paystack did not return a reusable card authorization.');
