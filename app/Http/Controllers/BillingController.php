@@ -20,6 +20,7 @@ class BillingController extends Controller
     {
         return $this->page('billing', [
             'billingProducts' => BillingProduct::withCount('subscriptions')->latest()->get(),
+            'activeBillingProducts' => BillingProduct::where('active', true)->where('interval_unit', '!=', 'once')->orderBy('name')->get(),
             'subscriptions' => BillingSubscription::with(['claim', 'card', 'product', 'attempts.transaction'])->latest()->get(),
         ], $settings);
     }
@@ -118,6 +119,48 @@ class BillingController extends Controller
         $charged = $billing->bill($subscription);
         $subscription->refresh();
         return back()->with('status', $charged ? 'Subscription payment succeeded.' : 'Charge attempt recorded. Current subscription status: '.str_replace('_', ' ', $subscription->status).'.');
+    }
+
+    public function updateSubscriptionPlan(Request $request, BillingSubscription $subscription)
+    {
+        abort_unless(in_array($subscription->status, ['active', 'paused'], true), 422, 'Only active or paused subscriptions can be changed to a new plan.');
+        if ($subscription->attempts()->where('status', 'pending')->exists()) {
+            return back()->withErrors(['billing' => 'This subscription has a payment still processing. Sync that payment before changing its plan.']);
+        }
+
+        $data = $request->validate([
+            'billing_product_id' => ['required', 'integer', 'exists:billing_products,id'],
+            'consent_record' => ['required', 'string', 'min:10', 'max:1500'],
+            'consent_confirmed' => ['accepted'],
+        ]);
+        $product = BillingProduct::whereKey($data['billing_product_id'])
+            ->where('active', true)
+            ->where('interval_unit', '!=', 'once')
+            ->firstOrFail();
+
+        $now = Carbon::now();
+        $nextBillingAt = match ($product->interval_unit) {
+            'day' => $now->copy()->addDays($product->interval_count),
+            'week' => $now->copy()->addWeeks($product->interval_count),
+            'month' => $now->copy()->addMonthsNoOverflow($product->interval_count),
+            'year' => $now->copy()->addYearsNoOverflow($product->interval_count),
+        };
+
+        $subscription->update([
+            'billing_product_id' => $product->id,
+            'product_name' => $product->name,
+            'amount' => $product->amount,
+            'currency' => $product->currency,
+            'interval_unit' => $product->interval_unit,
+            'interval_count' => $product->interval_count,
+            'next_billing_at' => $nextBillingAt,
+            'retry_at' => null,
+            'consented_at' => $now,
+            'consent_record' => $data['consent_record'],
+            'consented_by' => $request->user()->id,
+        ]);
+
+        return redirect()->route('admin.billing')->with('status', 'Subscription terms updated immediately. The next charge is scheduled for '.$nextBillingAt->format('M j, Y g:i A').'; no payment was submitted now.');
     }
 
     public function updateStatus(Request $request, BillingSubscription $subscription)

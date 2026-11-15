@@ -61,5 +61,6 @@ Route::middleware(['auth', 'can:manage-payments'])->prefix('admin')->name('admin
     Route::get('/billing/subscriptions/create', [BillingController::class, 'createSubscription'])->name('billing.subscriptions.create');
     Route::post('/billing/subscriptions', [BillingController::class, 'storeSubscription'])->name('billing.subscriptions.store');
     Route::post('/billing/subscriptions/{subscription}/charge', [BillingController::class, 'chargeNow'])->name('billing.subscriptions.charge');
+    Route::put('/billing/subscriptions/{subscription}/plan', [BillingController::class, 'updateSubscriptionPlan'])->name('billing.subscriptions.plan');
     Route::put('/billing/subscriptions/{subscription}/status', [BillingController::class, 'updateStatus'])->name('billing.subscriptions.status');
 });
